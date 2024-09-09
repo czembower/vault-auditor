@@ -6,6 +6,14 @@ import (
 	"github.com/hashicorp/vault-client-go"
 )
 
+type namespaceInventory struct {
+	Name           string          `json:"name,omitempty"`
+	AuthMounts     []authMount     `json:"authMounts,omitempty"`
+	SecretsEngines []secretsEngine `json:"secretsEngines,omitempty"`
+	Policies       []policy        `json:"policies,omitempty"`
+	Errors         []string        `json:"errors,omitempty"`
+}
+
 type authMount struct {
 	Path   string   `json:"path,omitempty"`
 	Type   string   `json:"type,omitempty"`
@@ -22,14 +30,6 @@ type secretsEngine struct {
 	Version   string   `json:"version,omitempty"`
 	Secrets   []string `json:"secrets,omitempty"`
 	ItemCount int      `json:"itemCount,omitempty"`
-}
-
-type namespaceInventory struct {
-	Name           string          `json:"name,omitempty"`
-	AuthMounts     []authMount     `json:"authMounts,omitempty"`
-	SecretsEngines []secretsEngine `json:"secretsEngines,omitempty"`
-	Policies       []policy        `json:"policies,omitempty"`
-	Errors         []string        `json:"errors,omitempty"`
 }
 
 func (i *vaultInventory) getMounts(c *clientConfig, namespace string) error {
