@@ -1,0 +1,137 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/hashicorp/vault-client-go"
+)
+
+const (
+	timeout                = 3 * time.Second
+	authMethodsWithRole    = "approle, azure, jwt, kubernetes, oidc, oci, saml"
+	authMethodsWithRoles   = "aws, gcp, token, cf, alicloud"
+	authMethodsWithCerts   = "cert"
+	authMethodsWithGroups  = "ldap, okta, kerberos"
+	authMethodsWithUsers   = "userpass, radius, okta, ldap"
+	secretEnginesWithRoles = "aws, azure, consul, database, kubernetes, pki, ssh"
+	secretEnginesWithRole  = "nomad, terraform, transform,"
+	helpMessage            = `
+vault-auditor is a tool to audit a Vault cluster for enabled auth methods, auth
+method roles, secrets engines, static secret paths, and policies. To use
+vault-auditor, you must have a Vault token with a policy that allows listing all
+API paths. If the policy additionally permits reading policies, referenced paths
+will be included in the output.
+
+Output is in JSON format. Errors encountered while scanning the Vault cluster
+are included in this output.`
+)
+
+type clientConfig struct {
+	Addr          string          `json:"addr,omitempty"`
+	Token         string          `json:"token,omitempty"`
+	TlsSkipVerify bool            `json:"tlsSkipVerify,omitempty"`
+	Client        *vault.Client   `json:"client,omitempty"`
+	Ctx           context.Context `json:"ctx,omitempty"`
+}
+
+type vaultInventory struct {
+	Namespaces []namespaceInventory `json:"namespaces,omitempty"`
+}
+
+func (c *clientConfig) buildClient() (*vault.Client, error) {
+	tls := vault.TLSConfiguration{}
+	tls.InsecureSkipVerify = c.TlsSkipVerify
+	client, err := vault.New(
+		vault.WithAddress(c.Addr),
+		vault.WithRequestTimeout(timeout),
+		vault.WithRetryConfiguration(vault.RetryConfiguration{}),
+		vault.WithTLS(tls),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing client for %s: %w", c.Addr, err)
+	}
+
+	client.SetToken(c.Token)
+	c.Ctx = context.Background()
+
+	return client, nil
+}
+
+func (i *vaultInventory) scan(c *clientConfig) error {
+	namespacesResponse, err := c.Client.System.InternalUiListNamespaces(c.Ctx)
+	if err != nil {
+		return fmt.Errorf("error listing namespaces: %w", err)
+	}
+	namespaceList := []string{"root"}
+	for _, namespace := range namespacesResponse.Data.Keys {
+		namespaceList = append(namespaceList, strings.TrimSuffix(namespace, "/"))
+	}
+	wg := sync.WaitGroup{}
+	for _, namespace := range namespaceList {
+		wg.Add(1)
+		go func(namespace string) {
+			defer wg.Done()
+			err = i.getMounts(c, namespace)
+			if err != nil {
+				fmt.Printf("getMounts: %s: %v\n", namespace, err)
+			}
+			i.scanEngines(c, namespace)
+			if err != nil {
+				fmt.Printf("scanKvEngines: %s: %v\n", namespace, err)
+			}
+			i.scanAuths(c, namespace)
+			i.scanPolicies(c, namespace)
+		}(namespace)
+	}
+	wg.Wait()
+
+	return nil
+}
+
+func main() {
+	var c clientConfig
+	flag.StringVar(&c.Addr, "address", "https://localhost:8200", "Vault cluster API address")
+	flag.StringVar(&c.Token, "token", "", "Vault token with a policy that allows listing all API paths")
+	flag.BoolVar(&c.TlsSkipVerify, "tlsSkipVerify", false, "Skip TLS verification of the Vault server's certificate")
+	flag.CommandLine.Usage = func() {
+		fmt.Println(helpMessage)
+		fmt.Fprintf(flag.CommandLine.Output(), "\nUsage of vault-auditor:\n")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	for _, arg := range os.Args {
+		if arg == "--help" || arg == "--h" {
+			flag.Usage()
+			os.Exit(0)
+		}
+	}
+	flag.VisitAll(func(f *flag.Flag) {
+		if f.Value.String() == "" && f.Name != "opBatchToken" {
+			log.Fatalf("Missing required flag: %s\n", f.Name)
+		}
+	})
+
+	client, err := c.buildClient()
+	if err != nil {
+		log.Fatalf("buildClient: %v", err)
+	}
+	c.Client = client
+
+	var i vaultInventory
+	err = i.scan(&c)
+	if err != nil {
+		log.Fatalf("scan: %v", err)
+	}
+
+	jsonBytes, _ := json.MarshalIndent(i, "", "  ")
+	fmt.Printf("%s\n", jsonBytes)
+}
