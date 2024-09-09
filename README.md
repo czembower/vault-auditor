@@ -8,3 +8,13 @@ will be included in the output.
 
 Output is in JSON format. Errors encountered while scanning the Vault cluster
 are included in this output.
+
+```shell
+Usage of vault-auditor:
+  -address string
+        Vault cluster API address (default "https://localhost:8200")
+  -tlsSkipVerify
+        Skip TLS verification of the Vault server's certificate
+  -token string
+        Vault token with a policy that allows listing all API paths
+```
