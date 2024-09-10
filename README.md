@@ -128,3 +128,15 @@ path "+/secret/*" {
 # All KV v1 secrets engine paths must have list capability
 # For instance, set the last two examples to your KV v1 secrets engine path instead of secret/*
 ```
+
+## Concurrency and Rate Limiting
+
+This tool can generate excessive load on a Vault cluster. Care should be token
+to test load in a test environment before running in production to ensure that
+the load applied is within acceptable tolerances.
+
+The `rateLimit` option is the simplest method to control the generated load, and
+is effective as a global limiter regardless of `maxConcurrency`. The default
+values should be reasonable under most circumstances, but if there is concern
+for cluster stability, limiting the requests per second with `rateLimit` should
+provide all of the controls needed.
