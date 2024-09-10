@@ -66,30 +66,33 @@ func (c *clientConfig) buildClient() (*vault.Client, error) {
 }
 
 func (i *vaultInventory) scan(c *clientConfig) error {
-	namespacesResponse, err := c.Client.System.InternalUiListNamespaces(c.Ctx)
+	namespacesResponse, err := c.Client.List(c.Ctx, "sys/namespaces")
 	if err != nil {
 		return fmt.Errorf("error listing namespaces: %w", err)
 	}
+	namespaceListInt := namespacesResponse.Data["keys"].([]interface{})
 	namespaceList := []string{"root"}
-	for _, namespace := range namespacesResponse.Data.Keys {
-		namespaceList = append(namespaceList, strings.TrimSuffix(namespace, "/"))
+	for _, namespace := range namespaceListInt {
+		namespaceList = append(namespaceList, strings.TrimSuffix(namespace.(string), "/"))
 	}
 	wg := sync.WaitGroup{}
 	for _, namespace := range namespaceList {
 		wg.Add(1)
 		go func(namespace string) {
 			defer wg.Done()
-			err = i.getMounts(c, namespace)
-			if err != nil {
-				fmt.Printf("getMounts: %s: %v\n", namespace, err)
-			}
-			i.scanEngines(c, namespace)
-			if err != nil {
-				fmt.Printf("scanKvEngines: %s: %v\n", namespace, err)
-			}
-			i.scanAuths(c, namespace)
-			i.scanPolicies(c, namespace)
+			i.getMounts(c, namespace)
 		}(namespace)
+	}
+	wg.Wait()
+
+	for idx := range i.Namespaces {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			i.Namespaces[idx].scanEngines(c)
+			i.Namespaces[idx].scanAuths(c)
+			i.Namespaces[idx].scanPolicies(c)
+		}(idx)
 	}
 	wg.Wait()
 

@@ -6,63 +6,95 @@ import (
 	"sync"
 )
 
-func (i *vaultInventory) scanEngines(c *clientConfig, namespace string) {
-	namespacePath := setNamespacePath(namespace)
+func (ns *namespaceInventory) scanEngines(c *clientConfig) {
+	namespacePath := setNamespacePath(ns.Name)
 	wg := sync.WaitGroup{}
-	var path string
+	mu := sync.Mutex{}
 
-	secretEnginesWithRole := strings.Split(secretEnginesWithRole, ", ")
-	secretEnginesWithRoles := strings.Split(secretEnginesWithRoles, ", ")
+	enginesWithRole := strings.Split(secretEnginesWithRole, ", ")
+	enginesWithRoles := strings.Split(secretEnginesWithRoles, ", ")
 
-	for nsIdx, ns := range i.Namespaces {
-		if ns.Name == namespace {
-			for seIdx, engine := range ns.SecretsEngines {
-				wg.Add(1)
-				go func(nsIdx int, seIdx int, engine secretsEngine) {
-					defer wg.Done()
-					if stringInSlice(engine.Type, secretEnginesWithRole) {
-						path = namespacePath + engine.Path + "role"
-						listResp, err := c.Client.List(c.Ctx, path)
-						if err != nil {
-							i.Namespaces[nsIdx].Errors = append(i.Namespaces[nsIdx].Errors, fmt.Sprintf("error listing path %s: %v", path, err))
-						} else {
-							for _, role := range listResp.Data["keys"].([]interface{}) {
-								i.Namespaces[nsIdx].SecretsEngines[seIdx].Roles = append(i.Namespaces[nsIdx].SecretsEngines[seIdx].Roles, role.(string))
-							}
-						}
-					}
-					if stringInSlice(engine.Type, secretEnginesWithRoles) {
-						path = namespacePath + engine.Path + "roles"
-						listResp, err := c.Client.List(c.Ctx, path)
-						if err != nil {
-							i.Namespaces[nsIdx].Errors = append(i.Namespaces[nsIdx].Errors, fmt.Sprintf("error listing path %s: %v", path, err))
-						} else {
-							for _, role := range listResp.Data["keys"].([]interface{}) {
-								i.Namespaces[nsIdx].SecretsEngines[seIdx].Roles = append(i.Namespaces[nsIdx].SecretsEngines[seIdx].Roles, role.(string))
-							}
-						}
-					}
-					if engine.Type == "kv" {
-						if engine.Version == "2" {
-							path = namespacePath + engine.Path + "metadata"
-						} else {
-							path = strings.TrimSuffix(namespacePath+engine.Path, "/")
-						}
-						i.Namespaces[nsIdx].SecretsEngines[seIdx].Secrets = walkKvPath(path, i.Namespaces[nsIdx], c)
-						i.Namespaces[nsIdx].SecretsEngines[seIdx].ItemCount = len(i.Namespaces[nsIdx].SecretsEngines[seIdx].Secrets)
-					}
-				}(nsIdx, seIdx, engine)
-			}
-		}
+	appendError := func(errMsg string) {
+		mu.Lock()
+		ns.Errors = append(ns.Errors, errMsg)
+		mu.Unlock()
 	}
+
+	for seIdx := range ns.SecretsEngines {
+		engine := &ns.SecretsEngines[seIdx]
+		wg.Add(1)
+
+		go func(seIdx int, engine *secretsEngine) {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					appendError(fmt.Sprintf("Recovered from panic in goroutine for engine index %d: %v", seIdx, r))
+				}
+			}()
+
+			var path string
+			if stringInSlice(engine.Type, enginesWithRole) {
+				path = namespacePath + engine.Path + "role"
+				listResp, err := c.Client.List(c.Ctx, path)
+				if err != nil {
+					appendError(fmt.Sprintf("Error listing secrets engine `role` path %s: %v", path, err))
+				} else {
+					keys, ok := listResp.Data["keys"].([]interface{})
+					if !ok {
+						appendError(fmt.Sprintf("Unexpected data format in list response for path %s", path))
+						return
+					}
+					for _, role := range keys {
+						mu.Lock()
+						engine.Roles = append(engine.Roles, role.(string))
+						mu.Unlock()
+					}
+				}
+			}
+
+			if stringInSlice(engine.Type, enginesWithRoles) {
+				path = namespacePath + engine.Path + "roles"
+				listResp, err := c.Client.List(c.Ctx, path)
+				if err != nil {
+					appendError(fmt.Sprintf("Error listing secrets engine `roles` path %s: %v", path, err))
+				} else {
+					keys, ok := listResp.Data["keys"].([]interface{})
+					if !ok {
+						appendError(fmt.Sprintf("Unexpected data format in list response for path %s", path))
+						return
+					}
+					for _, role := range keys {
+						mu.Lock()
+						engine.Roles = append(engine.Roles, role.(string))
+						mu.Unlock()
+					}
+				}
+			}
+
+			if engine.Type == "kv" {
+				if engine.Version == "2" {
+					path = namespacePath + engine.Path + "metadata"
+				} else {
+					path = strings.TrimSuffix(namespacePath+engine.Path, "/")
+				}
+				ns.walkKvPath(seIdx, path, c)
+			}
+
+			mu.Lock()
+			engine.ItemCount = len(engine.Secrets)
+			mu.Unlock()
+
+		}(seIdx, engine)
+	}
+
 	wg.Wait()
 }
 
-func walkKvPath(path string, namespace namespaceInventory, c *clientConfig) []string {
+func (ns *namespaceInventory) walkKvPath(seIdx int, path string, c *clientConfig) []string {
 	var kvPaths []string
 	listResp, err := c.Client.List(c.Ctx, path)
 	if err != nil {
-		namespace.Errors = append(namespace.Errors, fmt.Sprintf("error listing path %s: %v", path, err))
+		ns.Errors = append(ns.Errors, fmt.Sprintf("error listing KV path %s: %v", path, err))
 	} else {
 		for _, kvPath := range listResp.Data["keys"].([]interface{}) {
 			kvPathString := kvPath.(string)
@@ -70,10 +102,11 @@ func walkKvPath(path string, namespace namespaceInventory, c *clientConfig) []st
 				kvPaths = append(kvPaths, strings.Replace(path+"/"+kvPathString, "/metadata", "", 1))
 			} else {
 				kvPathString = strings.TrimSuffix(kvPathString, "/")
-				kvPaths = append(kvPaths, walkKvPath(path+"/"+kvPathString, namespace, c)...)
+				kvPaths = append(kvPaths, ns.walkKvPath(seIdx, path+"/"+kvPathString, c)...)
 			}
 		}
 	}
 
+	ns.SecretsEngines[seIdx].Secrets = kvPaths
 	return kvPaths
 }

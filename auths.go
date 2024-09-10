@@ -4,82 +4,110 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"github.com/hashicorp/vault-client-go"
 )
 
-func (i *vaultInventory) scanAuths(c *clientConfig, namespace string) {
-	namespacePath := setNamespacePath(namespace)
+type authRole struct {
+	Name     string   `json:"name,omitempty"`
+	Policies []string `json:"policies,omitempty"`
+}
+
+func (ns *namespaceInventory) scanAuths(c *clientConfig) {
+	namespacePath := setNamespacePath(ns.Name)
 	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
 
 	authMethodsWithRole := strings.Split(authMethodsWithRole, ", ")
 	authMethodsWithRoles := strings.Split(authMethodsWithRoles, ", ")
 	authMethodsWithCerts := strings.Split(authMethodsWithCerts, ", ")
-	authMethodsWithGroups := strings.Split(authMethodsWithGroups, ", ")
-	authMethodsWithUsers := strings.Split(authMethodsWithUsers, ", ")
 
-	for nsIdx, ns := range i.Namespaces {
-		if ns.Name == namespace {
-			for amIdx, am := range ns.AuthMounts {
-				wg.Add(1)
-				go func(nsIdx int, amIdx int, am authMount) {
-					defer wg.Done()
-					if stringInSlice(am.Type, authMethodsWithRole) {
-						path := namespacePath + "auth/" + am.Path + "role"
-						listResp, err := c.Client.List(c.Ctx, path)
-						if err != nil {
-							i.Namespaces[nsIdx].Errors = append(i.Namespaces[nsIdx].Errors, fmt.Sprintf("error listing path %s: %v", path, err))
-						} else {
-							for _, role := range listResp.Data["keys"].([]interface{}) {
-								i.Namespaces[nsIdx].AuthMounts[amIdx].Roles = append(i.Namespaces[nsIdx].AuthMounts[amIdx].Roles, role.(string))
-							}
-						}
-					}
-					if stringInSlice(am.Type, authMethodsWithRoles) {
-						path := namespacePath + "auth/" + am.Path + "roles"
-						listResp, err := c.Client.List(c.Ctx, path)
-						if err != nil {
-							i.Namespaces[nsIdx].Errors = append(i.Namespaces[nsIdx].Errors, fmt.Sprintf("error listing path %s: %v", path, err))
-						} else {
-							for _, role := range listResp.Data["keys"].([]interface{}) {
-								i.Namespaces[nsIdx].AuthMounts[amIdx].Roles = append(i.Namespaces[nsIdx].AuthMounts[amIdx].Roles, role.(string))
-							}
-						}
-					}
-					if stringInSlice(am.Type, authMethodsWithCerts) {
-						path := namespacePath + "auth/" + am.Path + "certs"
-						listResp, err := c.Client.List(c.Ctx, path)
-						if err != nil {
-							i.Namespaces[nsIdx].Errors = append(i.Namespaces[nsIdx].Errors, fmt.Sprintf("error listing path %s: %v", path, err))
-						} else {
-							for _, cert := range listResp.Data["keys"].([]interface{}) {
-								i.Namespaces[nsIdx].AuthMounts[amIdx].Certs = append(i.Namespaces[nsIdx].AuthMounts[amIdx].Certs, cert.(string))
-							}
-						}
-					}
-					if stringInSlice(am.Type, authMethodsWithGroups) {
-						path := namespacePath + "auth/" + am.Path + "groups"
-						listResp, err := c.Client.List(c.Ctx, path)
-						if err != nil {
-							i.Namespaces[nsIdx].Errors = append(i.Namespaces[nsIdx].Errors, fmt.Sprintf("error listing path %s: %v", path, err))
-						} else {
-							for _, group := range listResp.Data["keys"].([]interface{}) {
-								i.Namespaces[nsIdx].AuthMounts[amIdx].Groups = append(i.Namespaces[nsIdx].AuthMounts[amIdx].Groups, group.(string))
-							}
-						}
-					}
-					if stringInSlice(am.Type, authMethodsWithUsers) {
-						path := namespacePath + "auth/" + am.Path + "users"
-						listResp, err := c.Client.List(c.Ctx, path)
-						if err != nil {
-							i.Namespaces[nsIdx].Errors = append(i.Namespaces[nsIdx].Errors, fmt.Sprintf("error listing path %s: %v", path, err))
-						} else {
-							for _, user := range listResp.Data["keys"].([]interface{}) {
-								i.Namespaces[nsIdx].AuthMounts[amIdx].Users = append(i.Namespaces[nsIdx].AuthMounts[amIdx].Users, user.(string))
-							}
-						}
-					}
-				}(nsIdx, amIdx, am)
-			}
+	appendError := func(errMsg string) {
+		mu.Lock()
+		ns.Errors = append(ns.Errors, errMsg)
+		mu.Unlock()
+	}
+
+	appendAuthData := func(amIdx int, item authRole, dataType string) {
+		mu.Lock()
+		switch dataType {
+		case "roles":
+			ns.AuthMounts[amIdx].Roles = append(ns.AuthMounts[amIdx].Roles, item)
+		case "certs":
+			ns.AuthMounts[amIdx].Certs = append(ns.AuthMounts[amIdx].Certs, item)
 		}
+		mu.Unlock()
+	}
+
+	for amIdx, am := range ns.AuthMounts {
+		wg.Add(1)
+		go func(amIdx int, am authMount) {
+			defer wg.Done()
+
+			listAndProcess := func(key string, dataType string) {
+				path := namespacePath + "auth/" + am.Path + key
+				listResp, err := c.Client.List(c.Ctx, path)
+				if err != nil {
+					appendError(fmt.Sprintf("error listing path %s: %v", path, err))
+					return
+				}
+
+				keys, ok := listResp.Data["keys"].([]interface{})
+				if !ok {
+					appendError(fmt.Sprintf("invalid response at path %s: missing keys", path))
+					return
+				}
+
+				for _, keyItem := range keys {
+					item, ok := keyItem.(string)
+					if !ok {
+						appendError(fmt.Sprintf("invalid key type at path %s", path))
+						continue
+					}
+
+					roleData := getAuthRole(c, ns, am.Path, item, key)
+					appendAuthData(amIdx, roleData, dataType)
+				}
+			}
+
+			if stringInSlice(am.Type, authMethodsWithRole) {
+				listAndProcess("role", "roles")
+			}
+			if stringInSlice(am.Type, authMethodsWithRoles) {
+				listAndProcess("roles", "roles")
+			}
+			if stringInSlice(am.Type, authMethodsWithCerts) {
+				listAndProcess("certs", "certs")
+			}
+		}(amIdx, am)
 	}
 	wg.Wait()
+}
+
+func getAuthRole(c *clientConfig, namespace *namespaceInventory, mount string, role string, rolePath string) authRole {
+	var roleData authRole
+	var policiesInt interface{}
+
+	roleResp, err := c.Client.Read(c.Ctx, "auth/"+mount+rolePath+"/"+role, vault.WithNamespace(namespace.Name))
+	if err != nil {
+		namespace.Errors = append(namespace.Errors, fmt.Sprintf("error reading path %s: %v", "auth/"+mount+rolePath+"/"+role, err))
+	} else {
+		if v, ok := roleResp.Data["token_policies"]; ok {
+			policiesInt = v.([]interface{})
+		}
+		if v, ok := roleResp.Data["allowed_policies"]; ok {
+			policiesInt = v.([]interface{})
+		}
+	}
+
+	if policiesInt == nil {
+		roleData.Policies = []string{}
+	} else {
+		for _, policy := range policiesInt.([]interface{}) {
+			roleData.Policies = append(roleData.Policies, policy.(string))
+		}
+	}
+	roleData.Name = role
+
+	return roleData
 }
