@@ -16,7 +16,7 @@ Usage of vault-auditor:
   -tlsSkipVerify
         Skip TLS verification of the Vault server's certificate
   -token string
-        Vault token with a policy that allows listing all API paths
+        Vault token with an appropriate audit policy
 ```
 
 ## Recommended Policy

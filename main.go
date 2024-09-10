@@ -102,7 +102,7 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 func main() {
 	var c clientConfig
 	flag.StringVar(&c.Addr, "address", "https://localhost:8200", "Vault cluster API address")
-	flag.StringVar(&c.Token, "token", "", "Vault token with a policy that allows listing all API paths")
+	flag.StringVar(&c.Token, "token", "", "Vault token with an appropriate audit policy")
 	flag.BoolVar(&c.TlsSkipVerify, "tlsSkipVerify", false, "Skip TLS verification of the Vault server's certificate")
 	flag.CommandLine.Usage = func() {
 		fmt.Println(helpMessage)
