@@ -131,9 +131,9 @@ path "+/secret/*" {
 
 ## Concurrency and Rate Limiting
 
-This tool can generate excessive load on a Vault cluster. Care should be token
-to test load in a test environment before running in production to ensure that
-the load applied is within acceptable tolerances.
+This tool can generate excessive load on a Vault cluster. Care should be taken
+to evaluate load in a test environment before running in production to ensure
+that the load applied is within acceptable tolerances.
 
 The `rateLimit` option is the simplest method to control the generated load, and
 is effective as a global limiter regardless of `maxConcurrency`. The default
