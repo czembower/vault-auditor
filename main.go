@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault-client-go"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -35,11 +36,13 @@ are included in this output.`
 )
 
 type clientConfig struct {
-	Addr          string          `json:"addr,omitempty"`
-	Token         string          `json:"token,omitempty"`
-	TlsSkipVerify bool            `json:"tlsSkipVerify,omitempty"`
-	Client        *vault.Client   `json:"client,omitempty"`
-	Ctx           context.Context `json:"ctx,omitempty"`
+	Addr           string          `json:"addr,omitempty"`
+	Token          string          `json:"token,omitempty"`
+	TlsSkipVerify  bool            `json:"tlsSkipVerify,omitempty"`
+	Client         *vault.Client   `json:"client,omitempty"`
+	Ctx            context.Context `json:"ctx,omitempty"`
+	MaxConcurrency int             `json:"maxConcurrency,omitempty"`
+	RateLimit      int             `json:"rateLimit,omitempty"`
 }
 
 type vaultInventory struct {
@@ -49,11 +52,14 @@ type vaultInventory struct {
 func (c *clientConfig) buildClient() (*vault.Client, error) {
 	tls := vault.TLSConfiguration{}
 	tls.InsecureSkipVerify = c.TlsSkipVerify
+	limiter := rate.NewLimiter(rate.Limit(c.RateLimit), 2*c.RateLimit)
+
 	client, err := vault.New(
 		vault.WithAddress(c.Addr),
 		vault.WithRequestTimeout(timeout),
 		vault.WithRetryConfiguration(vault.RetryConfiguration{}),
 		vault.WithTLS(tls),
+		vault.WithRateLimiter(limiter),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing client for %s: %w", c.Addr, err)
@@ -71,15 +77,22 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 		return fmt.Errorf("error listing namespaces: %w", err)
 	}
 	namespaceListInt := namespacesResponse.Data["keys"].([]interface{})
-	namespaceList := []string{"root"}
+	namespaceList := make([]string, 0, len(namespaceListInt)+1)
+	namespaceList = append(namespaceList, "root")
+
 	for _, namespace := range namespaceListInt {
 		namespaceList = append(namespaceList, strings.TrimSuffix(namespace.(string), "/"))
 	}
+
 	wg := sync.WaitGroup{}
+	sem := make(chan struct{}, c.MaxConcurrency)
+
 	for _, namespace := range namespaceList {
 		wg.Add(1)
+		sem <- struct{}{}
 		go func(namespace string) {
 			defer wg.Done()
+			defer func() { <-sem }()
 			i.getMounts(c, namespace)
 		}(namespace)
 	}
@@ -87,8 +100,10 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 
 	for idx := range i.Namespaces {
 		wg.Add(1)
+		sem <- struct{}{}
 		go func(idx int) {
 			defer wg.Done()
+			defer func() { <-sem }()
 			i.Namespaces[idx].scanEngines(c)
 			i.Namespaces[idx].scanAuths(c)
 			i.Namespaces[idx].scanPolicies(c)
@@ -103,6 +118,8 @@ func main() {
 	var c clientConfig
 	flag.StringVar(&c.Addr, "address", "https://localhost:8200", "Vault cluster API address")
 	flag.StringVar(&c.Token, "token", "", "Vault token with an appropriate audit policy")
+	flag.IntVar(&c.MaxConcurrency, "maxConcurrency", 10, "Maximum number of concurrent requests to the Vault API")
+	flag.IntVar(&c.RateLimit, "rateLimit", 100, "Maximum number of requests per second to the Vault API")
 	flag.BoolVar(&c.TlsSkipVerify, "tlsSkipVerify", false, "Skip TLS verification of the Vault server's certificate")
 	flag.CommandLine.Usage = func() {
 		fmt.Println(helpMessage)

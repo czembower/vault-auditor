@@ -12,11 +12,15 @@ are included in this output.
 ```text
 Usage of vault-auditor:
   -address string
-        Vault cluster API address (default "https://localhost:8200")
+    	Vault cluster API address (default "https://localhost:8200")
+  -maxConcurrency int
+    	Maximum number of concurrent requests to the Vault API (default 10)
+  -rateLimit int
+    	Maximum number of requests per second to the Vault API (default 100)
   -tlsSkipVerify
-        Skip TLS verification of the Vault server's certificate
+    	Skip TLS verification of the Vault server's certificate
   -token string
-        Vault token with an appropriate audit policy
+    	Vault token with an appropriate audit policy
 ```
 
 ## Recommended Policy
@@ -115,5 +119,12 @@ path "+/+/metadata/*" {
 path "+/metadata/*" {
   capabilities = ["list"]
 }
-# NOTE: All KV v1 secrets engine paths must have list capability
+path "secret/*" {
+  capabilities = ["list"]
+}
+path "+/secret/*" {
+  capabilities = ["list"]
+}
+# All KV v1 secrets engine paths must have list capability
+# For instance, set the last two examples to your KV v1 secrets engine path instead of secret/*
 ```

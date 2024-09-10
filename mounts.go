@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/hashicorp/vault-client-go"
 )
@@ -33,7 +34,13 @@ type secretsEngine struct {
 }
 
 func (i *vaultInventory) getMounts(c *clientConfig, namespace string) {
-	namespaceInventory := namespaceInventory{Name: namespace}
+	var namespacePool = sync.Pool{
+		New: func() interface{} {
+			return &namespaceInventory{}
+		},
+	}
+	namespaceInventory := namespacePool.Get().(*namespaceInventory)
+	namespaceInventory.Name = namespace
 
 	authMountsResponse, err := c.Client.Read(c.Ctx, "sys/auth", vault.WithNamespace(namespace))
 	if err != nil {
@@ -68,5 +75,5 @@ func (i *vaultInventory) getMounts(c *clientConfig, namespace string) {
 		}
 	}
 
-	i.Namespaces = append(i.Namespaces, namespaceInventory)
+	i.Namespaces = append(i.Namespaces, *namespaceInventory)
 }

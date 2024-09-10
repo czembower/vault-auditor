@@ -22,12 +22,6 @@ func (ns *namespaceInventory) scanAuths(c *clientConfig) {
 	authMethodsWithRoles := strings.Split(authMethodsWithRoles, ", ")
 	authMethodsWithCerts := strings.Split(authMethodsWithCerts, ", ")
 
-	appendError := func(errMsg string) {
-		mu.Lock()
-		ns.Errors = append(ns.Errors, errMsg)
-		mu.Unlock()
-	}
-
 	appendAuthData := func(amIdx int, item authRole, dataType string) {
 		mu.Lock()
 		switch dataType {
@@ -39,29 +33,34 @@ func (ns *namespaceInventory) scanAuths(c *clientConfig) {
 		mu.Unlock()
 	}
 
+	sem := make(chan struct{}, c.MaxConcurrency)
+
 	for amIdx, am := range ns.AuthMounts {
 		wg.Add(1)
+		sem <- struct{}{}
 		go func(amIdx int, am authMount) {
 			defer wg.Done()
+			defer func() { <-sem }()
+			localErrors := []string{}
 
 			listAndProcess := func(key string, dataType string) {
 				path := namespacePath + "auth/" + am.Path + key
 				listResp, err := c.Client.List(c.Ctx, path)
 				if err != nil {
-					appendError(fmt.Sprintf("error listing path %s: %v", path, err))
+					localErrors = append(localErrors, fmt.Sprintf("error listing path %s: %v", path, err))
 					return
 				}
 
 				keys, ok := listResp.Data["keys"].([]interface{})
 				if !ok {
-					appendError(fmt.Sprintf("invalid response at path %s: missing keys", path))
+					localErrors = append(localErrors, fmt.Sprintf("invalid response at path %s: missing keys", path))
 					return
 				}
 
 				for _, keyItem := range keys {
 					item, ok := keyItem.(string)
 					if !ok {
-						appendError(fmt.Sprintf("invalid key type at path %s", path))
+						localErrors = append(localErrors, fmt.Sprintf("invalid key type at path %s", path))
 						continue
 					}
 
@@ -79,6 +78,10 @@ func (ns *namespaceInventory) scanAuths(c *clientConfig) {
 			if stringInSlice(am.Type, authMethodsWithCerts) {
 				listAndProcess("certs", "certs")
 			}
+
+			mu.Lock()
+			ns.Errors = append(ns.Errors, localErrors...)
+			mu.Unlock()
 		}(amIdx, am)
 	}
 	wg.Wait()
