@@ -118,7 +118,7 @@ func main() {
 		}
 	}
 	flag.VisitAll(func(f *flag.Flag) {
-		if f.Value.String() == "" && f.Name != "opBatchToken" {
+		if f.Value.String() == "" {
 			log.Fatalf("Missing required flag: %s\n", f.Name)
 		}
 	})
