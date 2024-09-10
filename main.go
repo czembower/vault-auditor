@@ -26,9 +26,9 @@ const (
 	helpMessage            = `
 vault-auditor is a tool to audit a Vault cluster for enabled auth methods, auth
 method roles, secrets engines, static secret paths, and policies. To use
-vault-auditor, you must have a Vault token with a policy that allows listing all
-API paths. If the policy additionally permits reading policies, referenced paths
-will be included in the output.
+vault-auditor, you must have a Vault token with a policy that allows listing and
+reading various API paths. The capabilities required for auditing do not include
+reading any secret data. See below for the recommended policy definition.
 
 Output is in JSON format. Errors encountered while scanning the Vault cluster
 are included in this output.`
