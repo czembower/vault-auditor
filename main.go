@@ -25,14 +25,16 @@ const (
 	secretEnginesWithRoles = "aws, azure, consul, database, kubernetes, pki, ssh"
 	secretEnginesWithRole  = "nomad, terraform, transform,"
 	helpMessage            = `
-vault-auditor is a tool to audit a Vault cluster for enabled auth methods, auth
-method roles, secrets engines, static secret paths, and policies. To use
-vault-auditor, you must have a Vault token with a policy that allows listing and
-reading various API paths. The capabilities required for auditing do not include
-reading any secret data. See the README for the recommended policy definition.
+vault-auditor is a tool to scan a Vault cluster for enabled auth methods, auth
+method roles, secrets engines, static secret paths, entities, and policies. To
+use vault-auditor, you must have a Vault token with a policy that allows listing
+and reading various API paths. The capabilities required for auditing do not
+include reading any secret data. See below for the recommended policy
+definition.
 
 Output is in JSON format. Errors encountered while scanning the Vault cluster
-are included in this output.`
+are included in this output. If your anticipate a large output, it is
+recommended to redirect the output to a file.`
 )
 
 type clientConfig struct {
