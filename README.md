@@ -7,12 +7,19 @@ reading various API paths. The capabilities required for auditing do not include
 reading any secret data. See below for the recommended policy definition.
 
 Output is in JSON format. Errors encountered while scanning the Vault cluster
-are included in this output.
+are included in this output. If your anticipate a large output, it is
+recommended to redirect the output to a file:
+
+```shell
+vault-auditor -token $AUDIT_TOKEN > vault-audit.json
+```
 
 ```text
 Usage of vault-auditor:
   -address string
     	Vault cluster API address (default "https://localhost:8200")
+  -listSecrets
+    	List all KV engine secrets in the cluster (WARNING: this may produce a large amount of data)
   -maxConcurrency int
     	Maximum number of concurrent requests to the Vault API (default 10)
   -rateLimit int
@@ -24,10 +31,20 @@ Usage of vault-auditor:
 ```
 
 ## Recommended Policy
+The below policy example will enable `vault-auditor` to perform all available
+scanning, parsing, and reporting functions. If a policy does not permit access
+to a desired path, the auditor will still run and perform other tasks, but will
+log an error in the output.
+
 ```text
 ## List Namespaces ##
 path "sys/namespaces" {
   capabilities = ["list"]
+}
+
+## Read counters ##
+path "sys/internal/counters/activity/monthly" {
+  capabilities = ["read"]
 }
 
 ## Read policies ##
@@ -35,6 +52,14 @@ path "sys/policy/*" {
   capabilities = ["list", "read"]
 }
 path "+/sys/policy/*" {
+  capabilities = ["list", "read"]
+}
+
+## Read entities ##
+path "identity/entity/id/*" {
+  capabilities = ["list", "read"]
+}
+path "+/identity/entity/id/*" {
   capabilities = ["list", "read"]
 }
 

@@ -43,10 +43,12 @@ type clientConfig struct {
 	Ctx            context.Context `json:"ctx,omitempty"`
 	MaxConcurrency int             `json:"maxConcurrency,omitempty"`
 	RateLimit      int             `json:"rateLimit,omitempty"`
+	ListSecrets    bool            `json:"listSecrets,omitempty"`
 }
 
 type vaultInventory struct {
 	Namespaces []namespaceInventory `json:"namespaces,omitempty"`
+	Usage      usageData            `json:"usage,omitempty"`
 }
 
 func (c *clientConfig) buildClient() (*vault.Client, error) {
@@ -107,6 +109,7 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 			i.Namespaces[idx].scanEngines(c)
 			i.Namespaces[idx].scanAuths(c)
 			i.Namespaces[idx].scanPolicies(c)
+			i.Namespaces[idx].scanEntities(c)
 		}(idx)
 	}
 	wg.Wait()
@@ -121,6 +124,7 @@ func main() {
 	flag.IntVar(&c.MaxConcurrency, "maxConcurrency", 10, "Maximum number of concurrent requests to the Vault API")
 	flag.IntVar(&c.RateLimit, "rateLimit", 100, "Maximum number of requests per second to the Vault API")
 	flag.BoolVar(&c.TlsSkipVerify, "tlsSkipVerify", false, "Skip TLS verification of the Vault server's certificate")
+	flag.BoolVar(&c.ListSecrets, "listSecrets", false, "List all secrets in the cluster (WARNING: this may be a large amount of data)")
 	flag.CommandLine.Usage = func() {
 		fmt.Println(helpMessage)
 		fmt.Fprintf(flag.CommandLine.Output(), "\nUsage of vault-auditor:\n")
@@ -151,6 +155,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("scan: %v", err)
 	}
+	i.getUsageData(&c)
 
 	jsonBytes, _ := json.MarshalIndent(i, "", "  ")
 	fmt.Printf("%s\n", jsonBytes)

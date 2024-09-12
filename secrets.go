@@ -77,7 +77,9 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 				} else {
 					path = strings.TrimSuffix(namespacePath+engine.Path, "/")
 				}
-				ns.walkKvPath(seIdx, path, c)
+				if c.ListSecrets {
+					ns.walkKvPath(seIdx, path, c)
+				}
 			}
 
 			mu.Lock()
