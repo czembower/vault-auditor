@@ -30,12 +30,34 @@ path "sys/namespaces" {
   capabilities = ["list"]
 }
 
-## Read mounts ##
+## Read policies ##
+path "sys/policy/*" {
+  capabilities = ["list", "read"]
+}
+path "+/sys/policy/*" {
+  capabilities = ["list", "read"]
+}
+
+## Read secrets engine mounts ##
 path "sys/mounts" {
   capabilities = ["read"]
 }
 path "+/sys/mounts" {
   capabilities = ["read"]
+}
+
+## List secrets engine roles ##
+path "+/role/*" {
+  capabilities = ["list", "read"]
+}
+path "+/+/role/*" {
+  capabilities = ["list", "read"]
+}
+path "+/roles/*" {
+  capabilities = ["list", "read"]
+}
+path "+/+/roles/*" {
+  capabilities = ["list", "read"]
 }
 
 ## Read auth mounts ##
@@ -46,70 +68,21 @@ path "+/sys/auth" {
   capabilities = ["read"]
 }
 
-## Read policies ##
-path "sys/policy/*" {
-  capabilities = ["list", "read"]
-}
-path "+/sys/policy/*" {
-  capabilities = ["list", "read"]
-}
-
-## List auth roles ##
-path "auth/+/role" {
-  capabilities = ["list"]
-}
-path "+/auth/+/role" {
-  capabilities = ["list"]
-}
-path "auth/+/roles" {
-  capabilities = ["list"]
-}
-path "+/auth/+/roles" {
-  capabilities = ["list"]
-}
-
-## List secrets engine roles ##
-path "+/role" {
-  capabilities = ["list"]
-}
-path "+/+/role" {
-  capabilities = ["list"]
-}
-path "+/roles" {
-  capabilities = ["list"]
-}
-path "+/+/roles" {
-  capabilities = ["list"]
-}
-
 ## Read auth roles ##
-path "auth/+/role/*" {
-  capabilities = ["read"]
-}
+## (non-namespaced role access is granted by secrets engine policies, which result in the same globbed paths) ##
 path "+/auth/+/role/*" {
-  capabilities = ["read"]
-}
-path "auth/+/roles/*" {
-  capabilities = ["read"]
+  capabilities = ["list", "read"]
 }
 path "+/auth/+/roles/*" {
-  capabilities = ["read"]
-}
-
-## List auth certs ##
-path "auth/+/certs" {
-  capabilities = ["list"]
-}
-path "+/auth/+/certs" {
-  capabilities = ["list"]
+  capabilities = ["list", "read"]
 }
 
 ## Read auth certs ##
 path "auth/+/certs/*" {
-  capabilities = ["read"]
+  capabilities = ["list", "read"]
 }
 path "+/auth/+/certs/*" {
-  capabilities = ["read"]
+  capabilities = ["list", "read"]
 }
 
 ## Broad list capability for KV engines ##
@@ -123,6 +96,12 @@ path "secret/*" {
   capabilities = ["list"]
 }
 path "+/secret/*" {
+  capabilities = ["list"]
+}
+path "kv/*" {
+  capabilities = ["list"]
+}
+path "+/kv/*" {
   capabilities = ["list"]
 }
 # All KV v1 secrets engine paths must have list capability

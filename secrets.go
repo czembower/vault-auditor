@@ -28,7 +28,7 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 
 			defer func() {
 				if r := recover(); r != nil {
-					localErrors = append(localErrors, fmt.Sprintf("Recovered from panic in goroutine for engine index %d: %v", seIdx, r))
+					localErrors = append(localErrors, fmt.Sprintf("recovered from panic in goroutine for engine index %d: %v", seIdx, r))
 				}
 			}()
 
@@ -41,7 +41,7 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 				} else {
 					keys, ok := listResp.Data["keys"].([]interface{})
 					if !ok {
-						localErrors = append(localErrors, fmt.Sprintf("Unexpected data format in list response for path %s", path))
+						localErrors = append(localErrors, fmt.Sprintf("unexpected data format in list response for path %s", path))
 						return
 					}
 					for _, role := range keys {
@@ -56,11 +56,11 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 				path = namespacePath + engine.Path + "roles"
 				listResp, err := c.Client.List(c.Ctx, path)
 				if err != nil {
-					localErrors = append(localErrors, fmt.Sprintf("Error listing secrets engine `roles` path %s: %v", path, err))
+					localErrors = append(localErrors, fmt.Sprintf("error listing secrets engine `roles` path %s: %v", path, err))
 				} else {
 					keys, ok := listResp.Data["keys"].([]interface{})
 					if !ok {
-						localErrors = append(localErrors, fmt.Sprintf("Unexpected data format in list response for path %s", path))
+						localErrors = append(localErrors, fmt.Sprintf("unexpected data format in list response for path %s", path))
 						return
 					}
 					for _, role := range keys {
