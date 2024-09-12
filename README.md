@@ -15,6 +15,7 @@ recommended to redirect the output to a file:
 vault-auditor -token $AUDIT_TOKEN > vault-audit.json
 ```
 
+## Usage
 ```text
 Usage of vault-auditor:
   -address string
