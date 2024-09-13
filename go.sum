@@ -2,8 +2,8 @@ github.com/czembower/vault-auditor/client v0.0.0-20240913172710-7ecd18ed2aab h1:
 github.com/czembower/vault-auditor/client v0.0.0-20240913172710-7ecd18ed2aab/go.mod h1:isIco3FBCBDoq6Uas3YvZlO/x0SLcLzMPsHvVGhlDSU=
 github.com/czembower/vault-auditor/inventory v0.0.0-20240913172710-7ecd18ed2aab h1:88EKIXQTFm19Be3qPqJabHhlh6O/iKGEkux55s9t+Ks=
 github.com/czembower/vault-auditor/inventory v0.0.0-20240913172710-7ecd18ed2aab/go.mod h1:QJIZiNDlzYNqvV1IErAlNB6Yd431OuaZ1XTCG1w8pWA=
-github.com/czembower/vault-auditor/models v0.0.0-20240913170334-b894acf02be0 h1:ZEPD6J0QpCujMzaDdwr1PylPA87FdWmMrLV/PlPJ7bg=
-github.com/czembower/vault-auditor/models v0.0.0-20240913170334-b894acf02be0/go.mod h1:+A8zQhP54ME2ajHVXU7aN+7N2X3TFrLx5k4KCgJTxv0=
+github.com/czembower/vault-auditor/models v0.0.0-20240913172710-7ecd18ed2aab h1:fcfdi9+dwiioW7a7VFlZ0eNHgq+WU8dFcbfYq7PJn4Y=
+github.com/czembower/vault-auditor/models v0.0.0-20240913172710-7ecd18ed2aab/go.mod h1:+A8zQhP54ME2ajHVXU7aN+7N2X3TFrLx5k4KCgJTxv0=
 github.com/czembower/vault-auditor/utils v0.0.0-20240913170334-b894acf02be0 h1:F38qZ9l+P45sdlx9TLOo6HLbAgLsOtz8gNRKfzwAimc=
 github.com/czembower/vault-auditor/utils v0.0.0-20240913170334-b894acf02be0/go.mod h1:DwKmjpFR9+C0XSP26bZKsqnB0Hb5qM2OIfTpXnhbv8Q=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
