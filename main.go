@@ -31,7 +31,7 @@ are included in this output. If your anticipate a large output, it is
 recommended to redirect the output to a file.`
 )
 
-func (i *models.VaultInventory) scan(c *ClientConfig) error {
+func (i *models.VaultInventory) scan(c *client.ClientConfig) error {
 	namespacesResponse, err := c.Client.List(c.Ctx, "sys/namespaces")
 	if err != nil {
 		return fmt.Errorf("error listing namespaces: %w", err)
@@ -102,7 +102,7 @@ func main() {
 		}
 	})
 
-	client, err := client.BuildClient(c)
+	client, err := client.BuildClient(&c)
 	if err != nil {
 		log.Fatalf("buildClient: %v", err)
 	}
