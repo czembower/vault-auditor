@@ -4,7 +4,7 @@ go 1.23.1
 
 require (
 	github.com/czembower/vault-auditor/client v0.0.0-20240913174957-968a498a29b6
-	github.com/czembower/vault-auditor/inventory v0.0.0-20240913174957-968a498a29b6
+	github.com/czembower/vault-auditor/inventory v0.0.0-20240913172710-7ecd18ed2aab
 	github.com/czembower/vault-auditor/models v0.0.0-20240913174957-968a498a29b6
 )
 
