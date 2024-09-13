@@ -1,5 +1,9 @@
 package main
 
+import (
+	"sync"
+)
+
 func setNamespacePath(namespace string) string {
 	var namespacePath string
 
@@ -19,4 +23,20 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func appendError(errMsg string, errors *[]string) {
+	mu := sync.Mutex{}
+	mu.Lock()
+	*errors = append(*errors, errMsg)
+	mu.Unlock()
+}
+
+func getStringFromMap(m map[string]interface{}, key string) string {
+	if value, ok := m[key]; ok {
+		if strValue, ok := value.(string); ok {
+			return strValue
+		}
+	}
+	return ""
 }

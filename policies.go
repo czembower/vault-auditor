@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strings"
-	"sync"
 )
 
 type policy struct {
@@ -14,39 +13,59 @@ type policy struct {
 func (ns *namespaceInventory) scanPolicies(c *clientConfig) {
 	namespacePath := setNamespacePath(ns.Name)
 	path := namespacePath + "sys/policy"
-	mu := sync.Mutex{}
-
-	appendError := func(errMsg string) {
-		mu.Lock()
-		ns.Errors = append(ns.Errors, errMsg)
-		mu.Unlock()
-	}
 
 	policyResp, err := c.Client.List(c.Ctx, path)
 	if err != nil {
-		appendError(fmt.Sprintf("error listing path %s: %v", path, err))
-	} else {
-		policyInt := policyResp.Data["policies"].([]interface{})
-		for _, data := range policyInt {
-			var p policy
-			p.Name = data.(string)
-			policyPaths, err := c.Client.Read(c.Ctx, path+"/"+p.Name)
-			if err != nil {
-				appendError(fmt.Sprintf("error reading path %s: %v", path+"/"+p.Name, err))
-			} else {
-				var paths []string
-				rules := policyPaths.Data["rules"].(string)
-				rulesList := strings.Split(rules, "\n")
-				for _, rule := range rulesList {
-					if strings.HasPrefix(rule, "path") {
-						cleanPath := strings.Split(rule, "path \"")[1]
-						cleanPath = strings.Split(cleanPath, "\"")[0]
-						paths = append(paths, cleanPath)
-					}
-				}
-				p.Paths = paths
-			}
-			ns.Policies = append(ns.Policies, p)
+		appendError(fmt.Sprintf("error listing path %s: %v", path, err), &ns.Errors)
+		return
+	}
+
+	policies, ok := policyResp.Data["policies"].([]interface{})
+	if !ok {
+		appendError(fmt.Sprintf("invalid format for policies at path %s", path), &ns.Errors)
+		return
+	}
+
+	for _, data := range policies {
+		if policyName, ok := data.(string); ok {
+			ns.processPolicy(c, path, policyName)
+		} else {
+			appendError(fmt.Sprintf("invalid policy name format at path %s", path), &ns.Errors)
 		}
 	}
+}
+
+func (ns *namespaceInventory) processPolicy(c *clientConfig, basePath, policyName string) {
+	var p policy
+	p.Name = policyName
+
+	policyPath := fmt.Sprintf("%s/%s", basePath, policyName)
+	policyDetails, err := c.Client.Read(c.Ctx, policyPath)
+	if err != nil {
+		appendError(fmt.Sprintf("error reading path %s: %v", policyPath, err), &ns.Errors)
+		return
+	}
+
+	if rules, ok := policyDetails.Data["rules"].(string); ok {
+		p.Paths = extractPathsFromRules(rules)
+	} else {
+		appendError(fmt.Sprintf("invalid or missing rules for policy %s at path %s", policyName, policyPath), &ns.Errors)
+	}
+
+	ns.Policies = append(ns.Policies, p)
+}
+
+func extractPathsFromRules(rules string) []string {
+	var paths []string
+	rulesList := strings.Split(rules, "\n")
+
+	for _, rule := range rulesList {
+		if strings.HasPrefix(rule, "path") {
+			pathParts := strings.SplitN(rule, "\"", 3)
+			if len(pathParts) >= 2 {
+				paths = append(paths, pathParts[1])
+			}
+		}
+	}
+	return paths
 }

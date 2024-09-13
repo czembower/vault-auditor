@@ -11,10 +11,10 @@ type namespaceInventory struct {
 	Name           string          `json:"name,omitempty"`
 	AuthMounts     []authMount     `json:"authMounts,omitempty"`
 	SecretsEngines []secretsEngine `json:"secretsEngines,omitempty"`
-	// Entities       []entity        `json:"entities,omitempty"`
-	Policies []policy  `json:"policies,omitempty"`
-	Errors   []string  `json:"errors,omitempty"`
-	Usage    usageData `json:"usage,omitempty"`
+	Entities       []entity        `json:"entities,omitempty"`
+	Policies       []policy        `json:"policies,omitempty"`
+	Errors         []string        `json:"errors,omitempty"`
+	Usage          usageData       `json:"usage,omitempty"`
 }
 
 type authMount struct {
@@ -46,7 +46,7 @@ func (i *vaultInventory) getMounts(c *clientConfig, namespace string) {
 
 	authMountsResponse, err := c.Client.Read(c.Ctx, "sys/auth", vault.WithNamespace(namespace))
 	if err != nil {
-		namespaceInventory.Errors = append(namespaceInventory.Errors, fmt.Sprintf("error listing auth mounts for namespace %s: %v", namespace, err))
+		appendError(fmt.Sprintf("error listing auth mounts for namespace %s: %v", namespace, err), &namespaceInventory.Errors)
 	}
 	if authMountsResponse != nil {
 		for x, config := range authMountsResponse.Data {
@@ -59,7 +59,7 @@ func (i *vaultInventory) getMounts(c *clientConfig, namespace string) {
 
 	secretsEnginesResponse, err := c.Client.Read(c.Ctx, "sys/mounts", vault.WithNamespace(namespace))
 	if err != nil {
-		namespaceInventory.Errors = append(namespaceInventory.Errors, fmt.Sprintf("error listing secrets engines for namespace %s: %v", namespace, err))
+		appendError(fmt.Sprintf("error listing secrets engines for namespace %s: %v", namespace, err), &namespaceInventory.Errors)
 	}
 	if secretsEnginesResponse != nil {
 		for x, config := range secretsEnginesResponse.Data {

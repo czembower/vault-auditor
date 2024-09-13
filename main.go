@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	timeout                = 3 * time.Second
+	timeout                = 10 * time.Second
 	authMethodsWithRole    = "approle, azure, jwt, kubernetes, oidc, oci, saml"
 	authMethodsWithRoles   = "aws, gcp, token, cf, alicloud"
 	authMethodsWithCerts   = "cert"
@@ -51,6 +51,7 @@ type clientConfig struct {
 type vaultInventory struct {
 	Namespaces []namespaceInventory `json:"namespaces,omitempty"`
 	Usage      usageData            `json:"usage,omitempty"`
+	Errors     []string             `json:"errors,omitempty"`
 }
 
 func (c *clientConfig) buildClient() (*vault.Client, error) {
@@ -111,7 +112,7 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 			i.Namespaces[idx].scanEngines(c)
 			i.Namespaces[idx].scanAuths(c)
 			i.Namespaces[idx].scanPolicies(c)
-			// i.Namespaces[idx].scanEntities(c)
+			i.Namespaces[idx].scanEntities(c)
 		}(idx)
 	}
 	wg.Wait()
@@ -157,7 +158,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("scan: %v", err)
 	}
-	// i.getUsageData(&c)
+	i.getUsageData(&c)
 
 	jsonBytes, _ := json.MarshalIndent(i, "", "  ")
 	fmt.Printf("%s\n", jsonBytes)
