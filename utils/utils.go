@@ -1,10 +1,10 @@
-package main
+package utils
 
 import (
 	"sync"
 )
 
-func setNamespacePath(namespace string) string {
+func SetNamespacePath(namespace string) string {
 	var namespacePath string
 
 	if namespace == "root" {
@@ -16,7 +16,7 @@ func setNamespacePath(namespace string) string {
 	return namespacePath
 }
 
-func stringInSlice(a string, list []string) bool {
+func StringInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
 			return true
@@ -25,14 +25,14 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func appendError(errMsg string, errors *[]string) {
+func AppendError(errMsg string, errors *[]string) {
 	mu := sync.Mutex{}
 	mu.Lock()
 	*errors = append(*errors, errMsg)
 	mu.Unlock()
 }
 
-func getStringFromMap(m map[string]interface{}, key string) string {
+func GetStringFromMap(m map[string]interface{}, key string) string {
 	if value, ok := m[key]; ok {
 		if strValue, ok := value.(string); ok {
 			return strValue
