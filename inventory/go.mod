@@ -2,7 +2,12 @@ module github.com/czembower/vault-auditor/inventory
 
 go 1.23.1
 
-require github.com/hashicorp/vault-client-go v0.4.3
+require (
+	github.com/czembower/vault-auditor/client v0.0.0-20240913170334-b894acf02be0
+	github.com/czembower/vault-auditor/models v0.0.0-20240913170334-b894acf02be0
+	github.com/czembower/vault-auditor/utils v0.0.0-20240913170334-b894acf02be0
+	github.com/hashicorp/vault-client-go v0.4.3
+)
 
 require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -12,5 +17,5 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	golang.org/x/sys v0.4.0 // indirect
-	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af // indirect
+	golang.org/x/time v0.6.0 // indirect
 )

@@ -8,16 +8,12 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/czembower/vault-auditor/client"
 	"github.com/czembower/vault-auditor/models"
 )
 
 const (
-	timeout                = 10 * time.Second
-	authMethodsWithRole    = "approle, azure, jwt, kubernetes, oidc, oci, saml"
-	authMethodsWithRoles   = "aws, gcp, token, cf, alicloud"
-	authMethodsWithCerts   = "cert"
 	authMethodsWithGroups  = "ldap, okta, kerberos"
 	authMethodsWithUsers   = "userpass, radius, okta, ldap"
 	secretEnginesWithRoles = "aws, azure, consul, database, kubernetes, pki, ssh"
@@ -80,7 +76,7 @@ func (i *models.VaultInventory) scan(c *ClientConfig) error {
 }
 
 func main() {
-	var c ClientConfig
+	var c client.ClientConfig
 	flag.StringVar(&c.Addr, "address", "https://localhost:8200", "Vault cluster API address")
 	flag.StringVar(&c.Token, "token", "", "Vault token with an appropriate audit policy")
 	flag.IntVar(&c.MaxConcurrency, "maxConcurrency", 10, "Maximum number of concurrent requests to the Vault API")
@@ -106,13 +102,13 @@ func main() {
 		}
 	})
 
-	client, err := c.buildClient()
+	client, err := client.BuildClient(c)
 	if err != nil {
 		log.Fatalf("buildClient: %v", err)
 	}
 	c.Client = client
 
-	var i VaultInventory
+	var i models.VaultInventory
 	err = i.scan(&c)
 	if err != nil {
 		log.Fatalf("scan: %v", err)

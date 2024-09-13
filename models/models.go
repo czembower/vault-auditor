@@ -67,3 +67,7 @@ type Policy struct {
 	Name  string   `json:"name,omitempty"`
 	Paths []string `json:"paths,omitempty"`
 }
+
+func (v *VaultInventory) AddNamespace(ns NamespaceInventory) {
+	v.Namespaces = append(v.Namespaces, ns)
+}

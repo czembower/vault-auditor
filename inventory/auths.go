@@ -11,8 +11,14 @@ import (
 	"github.com/hashicorp/vault-client-go"
 )
 
-func (ns *models.NamespaceInventory) scanAuths(c *client.ClientConfig) {
-	namespacePath := SetNamespacePath(ns.Name)
+const (
+	authMethodsWithRole  = "approle, azure, jwt, kubernetes, oidc, oci, saml"
+	authMethodsWithRoles = "aws, gcp, token, cf, alicloud"
+	authMethodsWithCerts = "cert"
+)
+
+func (ns *NamespaceInventory) scanAuths(c *client.ClientConfig) {
+	namespacePath := utils.SetNamespacePath(ns.inventory.Namespaces)
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
 
@@ -20,7 +26,7 @@ func (ns *models.NamespaceInventory) scanAuths(c *client.ClientConfig) {
 	authMethodsWithRoles := strings.Split(authMethodsWithRoles, ", ")
 	authMethodsWithCerts := strings.Split(authMethodsWithCerts, ", ")
 
-	appendAuthData := func(amIdx int, item authRole, dataType string) {
+	appendAuthData := func(amIdx int, item models.AuthRole, dataType string) {
 		mu.Lock()
 		switch dataType {
 		case "roles":
@@ -36,7 +42,7 @@ func (ns *models.NamespaceInventory) scanAuths(c *client.ClientConfig) {
 	for amIdx, am := range ns.AuthMounts {
 		wg.Add(1)
 		sem <- struct{}{}
-		go func(amIdx int, am authMount) {
+		go func(amIdx int, am models.AuthMount) {
 			defer wg.Done()
 			defer func() { <-sem }()
 			localErrors := []string{}
@@ -70,10 +76,10 @@ func (ns *models.NamespaceInventory) scanAuths(c *client.ClientConfig) {
 			if utils.StringInSlice(am.Type, authMethodsWithRole) {
 				listAndProcess("role", "roles")
 			}
-			if StringInSlice(am.Type, authMethodsWithRoles) {
+			if utils.StringInSlice(am.Type, authMethodsWithRoles) {
 				listAndProcess("roles", "roles")
 			}
-			if stringInSlice(am.Type, authMethodsWithCerts) {
+			if utils.StringInSlice(am.Type, authMethodsWithCerts) {
 				listAndProcess("certs", "certs")
 			}
 
@@ -85,8 +91,8 @@ func (ns *models.NamespaceInventory) scanAuths(c *client.ClientConfig) {
 	wg.Wait()
 }
 
-func getAuthRole(c *clientConfig, namespace *namespaceInventory, mount string, role string, rolePath string) authRole {
-	var roleData authRole
+func getAuthRole(c *client.ClientConfig, namespace *models.NamespaceInventory, mount string, role string, rolePath string) models.AuthRole {
+	var roleData models.AuthRole
 	var policiesInt interface{}
 
 	roleResp, err := c.Client.Read(c.Ctx, "auth/"+mount+rolePath+"/"+role, vault.WithNamespace(namespace.Name))
