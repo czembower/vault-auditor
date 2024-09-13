@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,12 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/vault-client-go"
-	"golang.org/x/time/rate"
+	"github.com/czembower/vault-auditor/models"
 )
 
 const (
-	timeout                = 3 * time.Second
+	timeout                = 10 * time.Second
 	authMethodsWithRole    = "approle, azure, jwt, kubernetes, oidc, oci, saml"
 	authMethodsWithRoles   = "aws, gcp, token, cf, alicloud"
 	authMethodsWithCerts   = "cert"
@@ -37,45 +35,7 @@ are included in this output. If your anticipate a large output, it is
 recommended to redirect the output to a file.`
 )
 
-type clientConfig struct {
-	Addr           string          `json:"addr,omitempty"`
-	Token          string          `json:"token,omitempty"`
-	TlsSkipVerify  bool            `json:"tlsSkipVerify,omitempty"`
-	Client         *vault.Client   `json:"client,omitempty"`
-	Ctx            context.Context `json:"ctx,omitempty"`
-	MaxConcurrency int             `json:"maxConcurrency,omitempty"`
-	RateLimit      int             `json:"rateLimit,omitempty"`
-	ListSecrets    bool            `json:"listSecrets,omitempty"`
-}
-
-type vaultInventory struct {
-	Namespaces []namespaceInventory `json:"namespaces,omitempty"`
-	Usage      usageData            `json:"usage,omitempty"`
-}
-
-func (c *clientConfig) buildClient() (*vault.Client, error) {
-	tls := vault.TLSConfiguration{}
-	tls.InsecureSkipVerify = c.TlsSkipVerify
-	limiter := rate.NewLimiter(rate.Limit(c.RateLimit), 2*c.RateLimit)
-
-	client, err := vault.New(
-		vault.WithAddress(c.Addr),
-		vault.WithRequestTimeout(timeout),
-		vault.WithRetryConfiguration(vault.RetryConfiguration{}),
-		vault.WithTLS(tls),
-		vault.WithRateLimiter(limiter),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error initializing client for %s: %w", c.Addr, err)
-	}
-
-	client.SetToken(c.Token)
-	c.Ctx = context.Background()
-
-	return client, nil
-}
-
-func (i *vaultInventory) scan(c *clientConfig) error {
+func (i *models.VaultInventory) scan(c *ClientConfig) error {
 	namespacesResponse, err := c.Client.List(c.Ctx, "sys/namespaces")
 	if err != nil {
 		return fmt.Errorf("error listing namespaces: %w", err)
@@ -111,7 +71,7 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 			i.Namespaces[idx].scanEngines(c)
 			i.Namespaces[idx].scanAuths(c)
 			i.Namespaces[idx].scanPolicies(c)
-			// i.Namespaces[idx].scanEntities(c)
+			i.Namespaces[idx].scanEntities(c)
 		}(idx)
 	}
 	wg.Wait()
@@ -120,7 +80,7 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 }
 
 func main() {
-	var c clientConfig
+	var c ClientConfig
 	flag.StringVar(&c.Addr, "address", "https://localhost:8200", "Vault cluster API address")
 	flag.StringVar(&c.Token, "token", "", "Vault token with an appropriate audit policy")
 	flag.IntVar(&c.MaxConcurrency, "maxConcurrency", 10, "Maximum number of concurrent requests to the Vault API")
@@ -152,12 +112,12 @@ func main() {
 	}
 	c.Client = client
 
-	var i vaultInventory
+	var i VaultInventory
 	err = i.scan(&c)
 	if err != nil {
 		log.Fatalf("scan: %v", err)
 	}
-	// i.getUsageData(&c)
+	i.getUsageData(&c)
 
 	jsonBytes, _ := json.MarshalIndent(i, "", "  ")
 	fmt.Printf("%s\n", jsonBytes)

@@ -1,20 +1,18 @@
-package main
+package inventory
 
 import (
 	"fmt"
 	"strings"
 	"sync"
 
+	"github.com/czembower/vault-auditor/client"
+	"github.com/czembower/vault-auditor/models"
+	"github.com/czembower/vault-auditor/utils"
 	"github.com/hashicorp/vault-client-go"
 )
 
-type authRole struct {
-	Name     string   `json:"name,omitempty"`
-	Policies []string `json:"policies,omitempty"`
-}
-
-func (ns *namespaceInventory) scanAuths(c *clientConfig) {
-	namespacePath := setNamespacePath(ns.Name)
+func (ns *models.NamespaceInventory) scanAuths(c *client.ClientConfig) {
+	namespacePath := SetNamespacePath(ns.Name)
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
 
@@ -69,10 +67,10 @@ func (ns *namespaceInventory) scanAuths(c *clientConfig) {
 				}
 			}
 
-			if stringInSlice(am.Type, authMethodsWithRole) {
+			if utils.StringInSlice(am.Type, authMethodsWithRole) {
 				listAndProcess("role", "roles")
 			}
-			if stringInSlice(am.Type, authMethodsWithRoles) {
+			if StringInSlice(am.Type, authMethodsWithRoles) {
 				listAndProcess("roles", "roles")
 			}
 			if stringInSlice(am.Type, authMethodsWithCerts) {
