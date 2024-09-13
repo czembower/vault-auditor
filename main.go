@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/czembower/vault-auditor/client"
+	"github.com/czembower/vault-auditor/inventory"
 	"github.com/czembower/vault-auditor/models"
 )
 
@@ -31,7 +32,7 @@ are included in this output. If your anticipate a large output, it is
 recommended to redirect the output to a file.`
 )
 
-func (i *models.VaultInventory) scan(c *client.ClientConfig) error {
+func scan(c *client.ClientConfig, i models.VaultInventory) error {
 	namespacesResponse, err := c.Client.List(c.Ctx, "sys/namespaces")
 	if err != nil {
 		return fmt.Errorf("error listing namespaces: %w", err)
@@ -53,6 +54,7 @@ func (i *models.VaultInventory) scan(c *client.ClientConfig) error {
 		go func(namespace string) {
 			defer wg.Done()
 			defer func() { <-sem }()
+			i = inventory.GetMounts(c, namespace)
 			i.getMounts(c, namespace)
 		}(namespace)
 	}
@@ -109,7 +111,7 @@ func main() {
 	c.Client = client
 
 	var i models.VaultInventory
-	err = i.scan(&c)
+	err = scan(&c, i)
 	if err != nil {
 		log.Fatalf("scan: %v", err)
 	}
