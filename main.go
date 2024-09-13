@@ -157,7 +157,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("scan: %v", err)
 	}
-	i.getUsageData(&c)
+	// i.getUsageData(&c)
 
 	jsonBytes, _ := json.MarshalIndent(i, "", "  ")
 	fmt.Printf("%s\n", jsonBytes)
