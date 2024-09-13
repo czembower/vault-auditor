@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"sync"
+
+	"github.com/czembower/vault-auditor/utils"
 )
 
 type entity struct {
@@ -20,18 +22,18 @@ type alias struct {
 }
 
 func (ns *namespaceInventory) scanEntities(c *clientConfig) {
-	namespacePath := setNamespacePath(ns.Name)
+	namespacePath := utils.SetNamespacePath(ns.Name)
 	path := namespacePath + "identity/entity/id"
 
 	resp, err := c.Client.List(c.Ctx, path)
 	if err != nil {
-		appendError(fmt.Sprintf("error listing path %s: %v", path, err), &ns.Errors)
+		utils.AppendError(fmt.Sprintf("error listing path %s: %v", path, err), &ns.Errors)
 		return
 	}
 
 	keys, ok := resp.Data["keys"].([]interface{})
 	if !ok {
-		appendError(fmt.Sprintf("invalid data type for keys at path %s", path), &ns.Errors)
+		utils.AppendError(fmt.Sprintf("invalid data type for keys at path %s", path), &ns.Errors)
 		return
 	}
 
@@ -55,7 +57,7 @@ func (ns *namespaceInventory) getEntity(c *clientConfig, id string, path string)
 	entityPath := path + "/" + e.ID
 	entityData, err := c.Client.Read(c.Ctx, entityPath)
 	if err != nil {
-		appendError(fmt.Sprintf("error reading path %s: %v", entityPath, err), &ns.Errors)
+		utils.AppendError(fmt.Sprintf("error reading path %s: %v", entityPath, err), &ns.Errors)
 		return
 	}
 
@@ -69,7 +71,7 @@ func (ns *namespaceInventory) getEntity(c *clientConfig, id string, path string)
 			if policyStr, ok := policy.(string); ok {
 				e.Policies = append(e.Policies, policyStr)
 			} else {
-				appendError(fmt.Sprintf("invalid policy type at path %s", entityPath), &ns.Errors)
+				utils.AppendError(fmt.Sprintf("invalid policy type at path %s", entityPath), &ns.Errors)
 			}
 		}
 	}
@@ -79,15 +81,15 @@ func (ns *namespaceInventory) getEntity(c *clientConfig, id string, path string)
 		for _, aliasData := range aliases {
 			aliasMap, ok := aliasData.(map[string]interface{})
 			if !ok {
-				appendError(fmt.Sprintf("invalid alias data at path %s", entityPath), &ns.Errors)
+				utils.AppendError(fmt.Sprintf("invalid alias data at path %s", entityPath), &ns.Errors)
 				continue
 			}
 
 			a := alias{
-				ID:        getStringFromMap(aliasMap, "id"),
-				Name:      getStringFromMap(aliasMap, "name"),
-				MountPath: getStringFromMap(aliasMap, "mount_path"),
-				MountType: getStringFromMap(aliasMap, "mount_type"),
+				ID:        utils.GetStringFromMap(aliasMap, "id"),
+				Name:      utils.GetStringFromMap(aliasMap, "name"),
+				MountPath: utils.GetStringFromMap(aliasMap, "mount_path"),
+				MountType: utils.GetStringFromMap(aliasMap, "mount_type"),
 			}
 			e.Aliases = append(e.Aliases, a)
 		}

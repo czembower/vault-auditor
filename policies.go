@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"strings"
+
+	"github.com/czembower/vault-auditor/utils"
 )
 
 type policy struct {
@@ -11,18 +13,18 @@ type policy struct {
 }
 
 func (ns *namespaceInventory) scanPolicies(c *clientConfig) {
-	namespacePath := setNamespacePath(ns.Name)
+	namespacePath := utils.SetNamespacePath(ns.Name)
 	path := namespacePath + "sys/policy"
 
 	policyResp, err := c.Client.List(c.Ctx, path)
 	if err != nil {
-		appendError(fmt.Sprintf("error listing path %s: %v", path, err), &ns.Errors)
+		utils.AppendError(fmt.Sprintf("error listing path %s: %v", path, err), &ns.Errors)
 		return
 	}
 
 	policies, ok := policyResp.Data["policies"].([]interface{})
 	if !ok {
-		appendError(fmt.Sprintf("invalid format for policies at path %s", path), &ns.Errors)
+		utils.AppendError(fmt.Sprintf("invalid format for policies at path %s", path), &ns.Errors)
 		return
 	}
 
@@ -30,7 +32,7 @@ func (ns *namespaceInventory) scanPolicies(c *clientConfig) {
 		if policyName, ok := data.(string); ok {
 			ns.processPolicy(c, path, policyName)
 		} else {
-			appendError(fmt.Sprintf("invalid policy name format at path %s", path), &ns.Errors)
+			utils.AppendError(fmt.Sprintf("invalid policy name format at path %s", path), &ns.Errors)
 		}
 	}
 }
@@ -42,14 +44,14 @@ func (ns *namespaceInventory) processPolicy(c *clientConfig, basePath, policyNam
 	policyPath := fmt.Sprintf("%s/%s", basePath, policyName)
 	policyDetails, err := c.Client.Read(c.Ctx, policyPath)
 	if err != nil {
-		appendError(fmt.Sprintf("error reading path %s: %v", policyPath, err), &ns.Errors)
+		utils.AppendError(fmt.Sprintf("error reading path %s: %v", policyPath, err), &ns.Errors)
 		return
 	}
 
 	if rules, ok := policyDetails.Data["rules"].(string); ok {
 		p.Paths = extractPathsFromRules(rules)
 	} else {
-		appendError(fmt.Sprintf("invalid or missing rules for policy %s at path %s", policyName, policyPath), &ns.Errors)
+		utils.AppendError(fmt.Sprintf("invalid or missing rules for policy %s at path %s", policyName, policyPath), &ns.Errors)
 	}
 
 	ns.Policies = append(ns.Policies, p)

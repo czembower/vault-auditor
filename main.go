@@ -46,6 +46,7 @@ type clientConfig struct {
 	MaxConcurrency int             `json:"maxConcurrency,omitempty"`
 	RateLimit      int             `json:"rateLimit,omitempty"`
 	ListSecrets    bool            `json:"listSecrets,omitempty"`
+	TargetEngine   string          `json:"targetEngine,omitempty"`
 }
 
 type vaultInventory struct {
@@ -128,6 +129,7 @@ func main() {
 	flag.IntVar(&c.RateLimit, "rateLimit", 100, "Maximum number of requests per second to the Vault API")
 	flag.BoolVar(&c.TlsSkipVerify, "tlsSkipVerify", false, "Skip TLS verification of the Vault server's certificate")
 	flag.BoolVar(&c.ListSecrets, "listSecrets", false, "List all secrets in the cluster (WARNING: this may be a large amount of data)")
+	flag.StringVar(&c.TargetEngine, "targetEngine", "", "Secret engine to target for scanning, indicated by [namespace/enginePath]")
 	flag.CommandLine.Usage = func() {
 		fmt.Println(helpMessage)
 		fmt.Fprintf(flag.CommandLine.Output(), "\nUsage of vault-auditor:\n")
@@ -142,7 +144,7 @@ func main() {
 		}
 	}
 	flag.VisitAll(func(f *flag.Flag) {
-		if f.Value.String() == "" {
+		if f.Value.String() == "" && f.Name != "targetEngine" {
 			log.Fatalf("Missing required flag: %s\n", f.Name)
 		}
 	})

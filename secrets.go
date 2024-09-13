@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"github.com/czembower/vault-auditor/utils"
 )
 
 func (ns *namespaceInventory) scanEngines(c *clientConfig) {
-	namespacePath := setNamespacePath(ns.Name)
+	namespacePath := utils.SetNamespacePath(ns.Name)
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
 
@@ -33,7 +35,7 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 			}()
 
 			var path string
-			if stringInSlice(engine.Type, enginesWithRole) {
+			if utils.StringInSlice(engine.Type, enginesWithRole) {
 				path = namespacePath + engine.Path + "role"
 				listResp, err := c.Client.List(c.Ctx, path)
 				if err != nil {
@@ -52,7 +54,7 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 				}
 			}
 
-			if stringInSlice(engine.Type, enginesWithRoles) {
+			if utils.StringInSlice(engine.Type, enginesWithRoles) {
 				path = namespacePath + engine.Path + "roles"
 				listResp, err := c.Client.List(c.Ctx, path)
 				if err != nil {
@@ -78,6 +80,12 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 					path = strings.TrimSuffix(namespacePath+engine.Path, "/")
 				}
 				if c.ListSecrets {
+					if c.TargetEngine != "" {
+						target := strings.Split(c.TargetEngine, "/")
+						if ns.Name != target[0] || ns.SecretsEngines[seIdx].Path != target[1]+"/" {
+							return
+						}
+					}
 					ns.walkKvPath(seIdx, path, c)
 				}
 			}

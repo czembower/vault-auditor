@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/czembower/vault-auditor/utils"
 	"github.com/hashicorp/vault-client-go"
 )
 
@@ -46,7 +47,7 @@ func (i *vaultInventory) getMounts(c *clientConfig, namespace string) {
 
 	authMountsResponse, err := c.Client.Read(c.Ctx, "sys/auth", vault.WithNamespace(namespace))
 	if err != nil {
-		appendError(fmt.Sprintf("error listing auth mounts for namespace %s: %v", namespace, err), &namespaceInventory.Errors)
+		utils.AppendError(fmt.Sprintf("error listing auth mounts for namespace %s: %v", namespace, err), &namespaceInventory.Errors)
 	}
 	if authMountsResponse != nil {
 		for x, config := range authMountsResponse.Data {
@@ -59,7 +60,7 @@ func (i *vaultInventory) getMounts(c *clientConfig, namespace string) {
 
 	secretsEnginesResponse, err := c.Client.Read(c.Ctx, "sys/mounts", vault.WithNamespace(namespace))
 	if err != nil {
-		appendError(fmt.Sprintf("error listing secrets engines for namespace %s: %v", namespace, err), &namespaceInventory.Errors)
+		utils.AppendError(fmt.Sprintf("error listing secrets engines for namespace %s: %v", namespace, err), &namespaceInventory.Errors)
 	}
 	if secretsEnginesResponse != nil {
 		for x, config := range secretsEnginesResponse.Data {

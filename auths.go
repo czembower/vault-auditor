@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/czembower/vault-auditor/utils"
 	"github.com/hashicorp/vault-client-go"
 )
 
@@ -14,7 +15,7 @@ type authRole struct {
 }
 
 func (ns *namespaceInventory) scanAuths(c *clientConfig) {
-	namespacePath := setNamespacePath(ns.Name)
+	namespacePath := utils.SetNamespacePath(ns.Name)
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
 
@@ -69,13 +70,13 @@ func (ns *namespaceInventory) scanAuths(c *clientConfig) {
 				}
 			}
 
-			if stringInSlice(am.Type, authMethodsWithRole) {
+			if utils.StringInSlice(am.Type, authMethodsWithRole) {
 				listAndProcess("role", "roles")
 			}
-			if stringInSlice(am.Type, authMethodsWithRoles) {
+			if utils.StringInSlice(am.Type, authMethodsWithRoles) {
 				listAndProcess("roles", "roles")
 			}
-			if stringInSlice(am.Type, authMethodsWithCerts) {
+			if utils.StringInSlice(am.Type, authMethodsWithCerts) {
 				listAndProcess("certs", "certs")
 			}
 

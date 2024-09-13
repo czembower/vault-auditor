@@ -21,11 +21,13 @@ Usage of vault-auditor:
   -address string
     	Vault cluster API address (default "https://localhost:8200")
   -listSecrets
-    	List all KV engine secrets in the cluster (WARNING: this may produce a large amount of data)
+    	List all secrets in the cluster (WARNING: this may be a large amount of data)
   -maxConcurrency int
     	Maximum number of concurrent requests to the Vault API (default 10)
   -rateLimit int
     	Maximum number of requests per second to the Vault API (default 100)
+  -targetEngine string
+    	Secret engine to target for scanning, indicated by [namespace/enginePath]
   -tlsSkipVerify
     	Skip TLS verification of the Vault server's certificate
   -token string
@@ -150,3 +152,9 @@ is effective as a global limiter regardless of `maxConcurrency`. The default
 values should be reasonable under most circumstances, but if there is concern
 for cluster stability, limiting the requests per second with `rateLimit` should
 provide all of the controls needed.
+
+## Target Engine
+
+Depending on the number of secrets in the the cluster it may be beneficial to
+target a specific secrets engine. This configuration option is only applicable
+for KV engines, and when the `listSecrets` option is set.

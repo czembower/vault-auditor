@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/czembower/vault-auditor/utils"
 )
 
 type usageData struct {
@@ -18,7 +20,7 @@ func (i *vaultInventory) getUsageData(c *clientConfig) {
 	path := "sys/internal/counters/activity/monthly"
 	activity, err := c.Client.Read(c.Ctx, path)
 	if err != nil || activity.Data == nil {
-		appendError(fmt.Sprintf("error reading path %s: %v", path, err), &i.Errors)
+		utils.AppendError(fmt.Sprintf("error reading path %s: %v", path, err), &i.Errors)
 		return
 	}
 
@@ -27,7 +29,7 @@ func (i *vaultInventory) getUsageData(c *clientConfig) {
 	if byNamespace, ok := activity.Data["by_namespace"].([]interface{}); ok {
 		processNamespaceUsage(byNamespace, i)
 	} else {
-		appendError(fmt.Sprintf("invalid type for 'by_namespace' in path %s", path), &i.Errors)
+		utils.AppendError(fmt.Sprintf("invalid type for 'by_namespace' in path %s", path), &i.Errors)
 	}
 }
 
@@ -51,7 +53,7 @@ func processNamespaceUsage(byNamespace []interface{}, i *vaultInventory) {
 	for _, nsData := range byNamespace {
 		nsMap, ok := nsData.(map[string]interface{})
 		if !ok {
-			appendError("invalid namespace data format", &i.Errors)
+			utils.AppendError("invalid namespace data format", &i.Errors)
 			continue
 		}
 
@@ -86,6 +88,6 @@ func updateNamespaceUsage(nsData map[string]interface{}, namespace *namespaceInv
 		extractNumber("secret_syncs", &namespace.Usage.SecretSyncs)
 		extractNumber("acme_clients", &namespace.Usage.AcmeClients)
 	} else {
-		appendError("invalid 'counts' data format in namespace usage", &namespace.Errors)
+		utils.AppendError("invalid 'counts' data format in namespace usage", &namespace.Errors)
 	}
 }
