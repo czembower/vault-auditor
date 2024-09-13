@@ -11,10 +11,10 @@ type namespaceInventory struct {
 	Name           string          `json:"name,omitempty"`
 	AuthMounts     []authMount     `json:"authMounts,omitempty"`
 	SecretsEngines []secretsEngine `json:"secretsEngines,omitempty"`
-	Entities       []entity        `json:"entities,omitempty"`
-	Policies       []policy        `json:"policies,omitempty"`
-	Errors         []string        `json:"errors,omitempty"`
-	Usage          usageData       `json:"usage,omitempty"`
+	// Entities       []entity        `json:"entities,omitempty"`
+	Policies []policy  `json:"policies,omitempty"`
+	Errors   []string  `json:"errors,omitempty"`
+	Usage    usageData `json:"usage,omitempty"`
 }
 
 type authMount struct {

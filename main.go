@@ -111,7 +111,7 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 			i.Namespaces[idx].scanEngines(c)
 			i.Namespaces[idx].scanAuths(c)
 			i.Namespaces[idx].scanPolicies(c)
-			i.Namespaces[idx].scanEntities(c)
+			// i.Namespaces[idx].scanEntities(c)
 		}(idx)
 	}
 	wg.Wait()
