@@ -9,7 +9,7 @@ require (
 )
 
 require (
-	github.com/czembower/vault-auditor/utils v0.0.0-20240913170334-b894acf02be0 // indirect
+	github.com/czembower/vault-auditor/utils v0.0.0-20240913172710-7ecd18ed2aab // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
