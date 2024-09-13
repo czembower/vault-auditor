@@ -15,11 +15,9 @@ import (
 )
 
 const (
-	authMethodsWithGroups  = "ldap, okta, kerberos"
-	authMethodsWithUsers   = "userpass, radius, okta, ldap"
-	secretEnginesWithRoles = "aws, azure, consul, database, kubernetes, pki, ssh"
-	secretEnginesWithRole  = "nomad, terraform, transform,"
-	helpMessage            = `
+	authMethodsWithGroups = "ldap, okta, kerberos"
+	authMethodsWithUsers  = "userpass, radius, okta, ldap"
+	helpMessage           = `
 vault-auditor is a tool to scan a Vault cluster for enabled auth methods, auth
 method roles, secrets engines, static secret paths, entities, and policies. To
 use vault-auditor, you must have a Vault token with a policy that allows listing
@@ -47,6 +45,7 @@ func scan(c *client.ClientConfig, i models.VaultInventory) error {
 
 	wg := sync.WaitGroup{}
 	sem := make(chan struct{}, c.MaxConcurrency)
+	namespaceInventory := models.NamespaceInventory{}
 
 	for _, namespace := range namespaceList {
 		wg.Add(1)
@@ -54,11 +53,11 @@ func scan(c *client.ClientConfig, i models.VaultInventory) error {
 		go func(namespace string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			i = inventory.GetMounts(c, namespace)
-			i.getMounts(c, namespace)
+			namespaceInventory = inventory.GetMounts(c, namespace)
 		}(namespace)
 	}
 	wg.Wait()
+	i.Namespaces = append(i.Namespaces, namespaceInventory)
 
 	for idx := range i.Namespaces {
 		wg.Add(1)
@@ -66,7 +65,7 @@ func scan(c *client.ClientConfig, i models.VaultInventory) error {
 		go func(idx int) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			i.Namespaces[idx].scanEngines(c)
+			namespaceInventory.SecretsEngines = inventory.ScanEngines(c, i.Namespaces[idx].Name, i.Namespaces[idx].SecretsEngines)
 			i.Namespaces[idx].scanAuths(c)
 			i.Namespaces[idx].scanPolicies(c)
 			i.Namespaces[idx].scanEntities(c)
