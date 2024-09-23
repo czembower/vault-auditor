@@ -7,13 +7,14 @@ listing and reading various API paths. The capabilities required for auditing do
 not include reading any secret data. See below for the recommended policy
 definition.
 
-Output is in JSON format. Errors encountered while scanning the Vault cluster
-are included in this output. If your anticipate a large output, it is
-recommended to redirect the output to a file:
+Output is in JSON format by default, rendered to a file named "inventory.json". 
+If CSV output is desired, use the `-outputFormat` flag with the value `csv`,
+which will output to a file named "secrets.csv". Note that the CSV output is not
+inclusive of all data collected by the tool - only static secrets and their
+associated metadata are populated in this output.
 
-```shell
-vault-auditor -token $AUDIT_TOKEN > vault-audit.json
-```
+Errors encountered while scanning the Vault cluster are included in the JSON
+output, and ignored for CSV outputs.
 
 ## Usage
 ```text
@@ -24,6 +25,8 @@ Usage of vault-auditor:
     	List all secrets in the cluster (WARNING: this may be a large amount of data)
   -maxConcurrency int
     	Maximum number of concurrent requests to the Vault API (default 10)
+  -outputFormat string
+    	Output format (json or csv) (default "json")
   -rateLimit int
     	Maximum number of requests per second to the Vault API (default 100)
   -targetEngine string
@@ -134,11 +137,15 @@ path "+/secret/*" {
 path "kv/*" {
   capabilities = ["list"]
 }
+path "kv/metadata/*" {
+  capabilities = ["list", "read"]
+}
 path "+/kv/*" {
   capabilities = ["list"]
 }
 # All KV v1 secrets engine paths must have list capability
 # For instance, set the last two examples to your KV v1 secrets engine path instead of secret/*
+# For KV v2 engines, both list and read capability should be granted on the metadata path
 ```
 
 ## Concurrency and Rate Limiting

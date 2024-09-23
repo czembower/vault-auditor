@@ -28,12 +28,12 @@ type authMount struct {
 }
 
 type secretsEngine struct {
-	Path      string   `json:"path,omitempty"`
-	Type      string   `json:"type,omitempty"`
-	Roles     []string `json:"roles,omitempty"`
-	Version   string   `json:"version,omitempty"`
-	Secrets   []string `json:"secrets,omitempty"`
-	ItemCount int      `json:"itemCount,omitempty"`
+	Path      string         `json:"path,omitempty"`
+	Type      string         `json:"type,omitempty"`
+	Roles     []string       `json:"roles,omitempty"`
+	Version   string         `json:"version,omitempty"`
+	Secrets   []staticSecret `json:"secrets,omitempty"`
+	ItemCount int            `json:"itemCount,omitempty"`
 }
 
 func (i *vaultInventory) getMounts(c *clientConfig, namespace string) {

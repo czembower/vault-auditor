@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -32,9 +31,14 @@ and reading various API paths. The capabilities required for auditing do not
 include reading any secret data. See below for the recommended policy
 definition.
 
-Output is in JSON format. Errors encountered while scanning the Vault cluster
-are included in this output. If your anticipate a large output, it is
-recommended to redirect the output to a file.`
+Output is in JSON format by default, rendered to a file named "inventory.json". 
+If CSV output is desired, use the -outputFormat flag with the value "csv", which
+will output to a file named "secrets.csv". Note that the CSV output is not
+inclusive of all data collected by the tool - only static secrets and their
+associated metadata are populated in this output.
+
+Errors encountered while scanning the Vault cluster are included in the JSON
+output, and ignored for CSV outputs.`
 )
 
 type clientConfig struct {
@@ -123,6 +127,8 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 
 func main() {
 	var c clientConfig
+	var outputFormat string
+
 	flag.StringVar(&c.Addr, "address", "https://localhost:8200", "Vault cluster API address")
 	flag.StringVar(&c.Token, "token", "", "Vault token with an appropriate audit policy")
 	flag.IntVar(&c.MaxConcurrency, "maxConcurrency", 10, "Maximum number of concurrent requests to the Vault API")
@@ -130,6 +136,7 @@ func main() {
 	flag.BoolVar(&c.TlsSkipVerify, "tlsSkipVerify", false, "Skip TLS verification of the Vault server's certificate")
 	flag.BoolVar(&c.ListSecrets, "listSecrets", false, "List all secrets in the cluster (WARNING: this may be a large amount of data)")
 	flag.StringVar(&c.TargetEngine, "targetEngine", "", "Secret engine to target for scanning, indicated by [namespace/enginePath]")
+	flag.StringVar(&outputFormat, "outputFormat", "json", "Output format (json or csv)")
 	flag.CommandLine.Usage = func() {
 		fmt.Println(helpMessage)
 		fmt.Fprintf(flag.CommandLine.Output(), "\nUsage of vault-auditor:\n")
@@ -162,6 +169,12 @@ func main() {
 	}
 	i.getUsageData(&c)
 
-	jsonBytes, _ := json.MarshalIndent(i, "", "  ")
-	fmt.Printf("%s\n", jsonBytes)
+	switch outputFormat {
+	case "json":
+		i.toJSON()
+	case "csv":
+		i.toCSV()
+	default:
+		log.Fatalf("Invalid output format: %s", outputFormat)
+	}
 }

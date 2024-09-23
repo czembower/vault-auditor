@@ -1,12 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/czembower/vault-auditor/utils"
 )
+
+type staticSecret struct {
+	Path           string      `json:"path,omitempty"`
+	CurrentVersion json.Number `json:"currentVersion,omitempty"`
+	CreationTime   string      `json:"creationTime,omitempty"`
+	UpdatedTime    string      `json:"updatedTime,omitempty"`
+}
 
 func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 	namespacePath := utils.SetNamespacePath(ns.Name)
@@ -77,6 +85,7 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 				if engine.Version == "2" {
 					path = namespacePath + engine.Path + "metadata"
 				} else {
+					engine.Version = "1"
 					path = strings.TrimSuffix(namespacePath+engine.Path, "/")
 				}
 				if c.ListSecrets {
@@ -101,16 +110,29 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 	wg.Wait()
 }
 
-func (ns *namespaceInventory) walkKvPath(seIdx int, path string, c *clientConfig) []string {
-	var kvPaths []string
+func (ns *namespaceInventory) walkKvPath(seIdx int, path string, c *clientConfig) []staticSecret {
+	var kvPaths []staticSecret
+
 	listResp, err := c.Client.List(c.Ctx, path)
 	if err != nil {
 		ns.Errors = append(ns.Errors, fmt.Sprintf("error listing KV path %s: %v", path, err))
 	} else {
 		for _, kvPath := range listResp.Data["keys"].([]interface{}) {
 			kvPathString := kvPath.(string)
+			var secret staticSecret
 			if !strings.HasSuffix(kvPathString, "/") {
-				kvPaths = append(kvPaths, strings.Replace(path+"/"+kvPathString, "/metadata", "", 1))
+				if strings.Contains(path, "/metadata") {
+					secretMetadata, err := c.Client.Read(c.Ctx, path+"/"+kvPathString)
+					if err != nil {
+						ns.Errors = append(ns.Errors, fmt.Sprintf("error reading KV metadata for %s: %v", path+"/"+kvPathString, err))
+					} else {
+						secret.CurrentVersion = secretMetadata.Data["current_version"].(json.Number)
+						secret.CreationTime = secretMetadata.Data["created_time"].(string)
+						secret.UpdatedTime = secretMetadata.Data["updated_time"].(string)
+					}
+				}
+				secret.Path = strings.Replace(path+"/"+kvPathString, "/metadata", "", 1)
+				kvPaths = append(kvPaths, secret)
 			} else {
 				kvPathString = strings.TrimSuffix(kvPathString, "/")
 				kvPaths = append(kvPaths, ns.walkKvPath(seIdx, path+"/"+kvPathString, c)...)
