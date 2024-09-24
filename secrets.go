@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/czembower/vault-auditor/utils"
+	"github.com/hashicorp/go-secure-stdlib/strutil"
 )
 
 type staticSecret struct {
@@ -14,9 +15,11 @@ type staticSecret struct {
 	CurrentVersion json.Number `json:"currentVersion,omitempty"`
 	CreationTime   string      `json:"creationTime,omitempty"`
 	UpdatedTime    string      `json:"updatedTime,omitempty"`
+	Policies       []string    `json:"policies,omitempty"`
+	Roles          []string    `json:"roles,omitempty"`
 }
 
-func (ns *namespaceInventory) scanEngines(c *clientConfig) {
+func (ns *namespaceInventory) scanEngines(c *clientConfig, i *vaultInventory) {
 	namespacePath := utils.SetNamespacePath(ns.Name)
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
@@ -95,7 +98,7 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 							return
 						}
 					}
-					ns.walkKvPath(seIdx, path, c)
+					ns.walkKvPath(seIdx, path, c, i)
 				}
 			}
 
@@ -110,36 +113,77 @@ func (ns *namespaceInventory) scanEngines(c *clientConfig) {
 	wg.Wait()
 }
 
-func (ns *namespaceInventory) walkKvPath(seIdx int, path string, c *clientConfig) []staticSecret {
+func (ns *namespaceInventory) walkKvPath(seIdx int, basepath string, c *clientConfig, i *vaultInventory) []staticSecret {
 	var kvPaths []staticSecret
 
-	listResp, err := c.Client.List(c.Ctx, path)
+	listResp, err := c.Client.List(c.Ctx, basepath)
 	if err != nil {
-		ns.Errors = append(ns.Errors, fmt.Sprintf("error listing KV path %s: %v", path, err))
+		ns.Errors = append(ns.Errors, fmt.Sprintf("error listing KV path %s: %v", basepath, err))
 	} else {
 		for _, kvPath := range listResp.Data["keys"].([]interface{}) {
 			kvPathString := kvPath.(string)
 			var secret staticSecret
 			if !strings.HasSuffix(kvPathString, "/") {
-				if strings.Contains(path, "/metadata") {
-					secretMetadata, err := c.Client.Read(c.Ctx, path+"/"+kvPathString)
+				if strings.Contains(basepath, "/metadata") {
+					secretMetadata, err := c.Client.Read(c.Ctx, basepath+"/"+kvPathString)
 					if err != nil {
-						ns.Errors = append(ns.Errors, fmt.Sprintf("error reading KV metadata for %s: %v", path+"/"+kvPathString, err))
+						ns.Errors = append(ns.Errors, fmt.Sprintf("error reading KV metadata for %s: %v", basepath+"/"+kvPathString, err))
 					} else {
 						secret.CurrentVersion = secretMetadata.Data["current_version"].(json.Number)
 						secret.CreationTime = secretMetadata.Data["created_time"].(string)
 						secret.UpdatedTime = secretMetadata.Data["updated_time"].(string)
 					}
 				}
-				secret.Path = strings.Replace(path+"/"+kvPathString, "/metadata", "", 1)
+				secret.Path = strings.Replace(basepath+"/"+kvPathString, "/metadata", "", 1)
+				for _, policy := range ns.Policies {
+					for _, policyPath := range policy.Paths {
+						match := checkForPolicyMatch(ns.Name, policyPath, basepath+"/"+kvPathString)
+						if match {
+							secret.Policies = append(secret.Policies, policy.Name)
+						}
+					}
+				}
+				if ns.Name != "root" {
+					for _, namespace := range i.Namespaces {
+						if namespace.Name == "root" {
+							for _, policy := range namespace.Policies {
+								for _, policyPath := range policy.Paths {
+									match := checkForPolicyMatch(namespace.Name, policyPath, basepath+"/"+kvPathString)
+									if match {
+										secret.Policies = append(secret.Policies, policy.Name+" (root)")
+									}
+								}
+							}
+						}
+					}
+				}
+				for _, authMount := range ns.AuthMounts {
+					for _, role := range authMount.Roles {
+						for _, policy := range role.Policies {
+							if utils.StringInSlice(policy, secret.Policies) {
+								secret.Roles = append(secret.Roles, role.Name)
+							}
+						}
+					}
+				}
 				kvPaths = append(kvPaths, secret)
 			} else {
 				kvPathString = strings.TrimSuffix(kvPathString, "/")
-				kvPaths = append(kvPaths, ns.walkKvPath(seIdx, path+"/"+kvPathString, c)...)
+				kvPaths = append(kvPaths, ns.walkKvPath(seIdx, basepath+"/"+kvPathString, c, i)...)
 			}
 		}
 	}
 
 	ns.SecretsEngines[seIdx].Secrets = kvPaths
 	return kvPaths
+}
+
+func checkForPolicyMatch(namespace, policyPath, secretPath string) bool {
+	if namespace == "root" {
+		match := strutil.GlobbedStringsMatch("/"+policyPath, "/"+strings.Replace(secretPath, "/metadata", "", 1))
+		return match
+	}
+	match := strutil.GlobbedStringsMatch("/"+namespace+"/"+policyPath, "/"+strings.Replace(secretPath, "/metadata", "", 1))
+
+	return match
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 func createFile(outputFormat string) (*os.File, error) {
@@ -39,12 +40,12 @@ func (i *vaultInventory) toCSV() {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	writer.Write([]string{"Namespace", "Engine Type", "Engine Version", "Engine Path", "Secret Path", "Current Version", "Creation Time", "Updated Time"})
+	writer.Write([]string{"Namespace", "Engine Type", "Engine Version", "Engine Path", "Secret Path", "Current Version", "Creation Time", "Updated Time", "Access-Granting Policies", "Namespace Roles with Access-Granting Policies"})
 
 	for _, namespace := range i.Namespaces {
 		for _, engine := range namespace.SecretsEngines {
 			for _, secret := range engine.Secrets {
-				writer.Write([]string{namespace.Name, engine.Type, engine.Version, engine.Path, secret.Path, string(secret.CurrentVersion), secret.CreationTime, secret.UpdatedTime})
+				writer.Write([]string{namespace.Name, engine.Type, engine.Version, engine.Path, secret.Path, string(secret.CurrentVersion), secret.CreationTime, secret.UpdatedTime, strings.Join(secret.Policies, ","), strings.Join(secret.Roles, ",")})
 			}
 		}
 	}
