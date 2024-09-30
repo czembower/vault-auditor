@@ -20,11 +20,17 @@ jobs:
       with:
         go-version: '1.22'
 
-    - name: Build vault-auditor binary
+    - name: Build vault-auditor binary for Linux/AMD64
       run: GOOS=linux GOARCH=amd64 go build ./
 
-    - name: Build Docker image
+    - name: Build Docker image for Linux/AMD64
       run: docker build ./ -t ghcr.io/czembower/vault-auditor:latest
+
+    - name: Build Darwin/ARM64 binary
+      run: GOOS=darwin GOARCH=arm64 go build ./ -o vault-auditor-darwin-arm64
+
+    - name: Build Docker image for Darwin/ARM64
+      run: docker build ./ -t ghcr.io/czembower/vault-auditor-darwin-arm64:latest
 
     - name: Login to GHCR
       uses: docker/login-action@v1
@@ -33,5 +39,7 @@ jobs:
         username: ${{github.actor}}
         password: ${{secrets.GITHUB_TOKEN}}
 
-    - name: Push image
-      run: docker push ghcr.io/czembower/vault-auditor:latest
+    - name: Push images
+      run: |
+        docker push ghcr.io/czembower/vault-auditor:latest
+        docker push ghcr.io/czembower/vault-auditor-darwin-arm64:latest
