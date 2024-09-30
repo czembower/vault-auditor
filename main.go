@@ -128,6 +128,7 @@ func (i *vaultInventory) scan(c *clientConfig) error {
 func main() {
 	var c clientConfig
 	var outputFormat string
+	var sqlConnectionString string
 
 	flag.StringVar(&c.Addr, "address", "https://localhost:8200", "Vault cluster API address")
 	flag.StringVar(&c.Token, "token", "", "Vault token with an appropriate audit policy")
@@ -136,7 +137,8 @@ func main() {
 	flag.BoolVar(&c.TlsSkipVerify, "tlsSkipVerify", false, "Skip TLS verification of the Vault server's certificate")
 	flag.BoolVar(&c.ListSecrets, "listSecrets", false, "List all secrets in the cluster (WARNING: this may be a large amount of data)")
 	flag.StringVar(&c.TargetEngine, "targetEngine", "", "Secret engine to target for scanning, indicated by [namespace/enginePath]")
-	flag.StringVar(&outputFormat, "outputFormat", "json", "Output format (json or csv)")
+	flag.StringVar(&outputFormat, "outputFormat", "stdout", "Output format. Options include json (produces ./inventory.json), csv (produces ./secrets.csv), or stdout (JSON output to stdout)")
+	flag.StringVar(&sqlConnectionString, "sqlConnectionString", "null", "SQL connection string in the format 'driver://user:password@host:port/dbname?sslmode=mode'")
 	flag.CommandLine.Usage = func() {
 		fmt.Println(helpMessage)
 		fmt.Fprintf(flag.CommandLine.Output(), "\nUsage of vault-auditor:\n")
@@ -155,6 +157,9 @@ func main() {
 			log.Fatalf("Missing required flag: %s\n", f.Name)
 		}
 	})
+	if outputFormat == "sql" && sqlConnectionString == "null" {
+		log.Fatalf("Missing required flag: sqlConnectionString")
+	}
 
 	client, err := c.buildClient()
 	if err != nil {
@@ -171,9 +176,13 @@ func main() {
 
 	switch outputFormat {
 	case "json":
-		i.toJSON()
+		i.toJSON(false)
 	case "csv":
 		i.toCSV()
+	case "stdout":
+		i.toJSON(true)
+	case "sql":
+		i.toSQL(sqlConnectionString)
 	default:
 		log.Fatalf("Invalid output format: %s", outputFormat)
 	}
