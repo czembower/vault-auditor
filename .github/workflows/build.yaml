@@ -27,10 +27,10 @@ jobs:
       run: docker build ./ -t ghcr.io/czembower/vault-auditor:latest
 
     - name: Build Darwin/ARM64 binary
-      run: GOOS=darwin GOARCH=arm64 go build -o vault-auditor-darwin-arm64 ./
+      run: GOOS=darwin GOARCH=arm64 go build -o vault-auditor ./
 
     - name: Build Docker image for Darwin/ARM64
-      run: docker build --platform linux/arm64/v8 ./ -t ghcr.io/czembower/vault-auditor-darwin-arm64:latest
+      run: docker build --platform linux/arm64/v8 ./ -t ghcr.io/czembower/vault-auditor-arm64:latest
 
     - name: Login to GHCR
       uses: docker/login-action@v1
