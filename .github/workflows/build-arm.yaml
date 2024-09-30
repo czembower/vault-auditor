@@ -23,6 +23,10 @@ jobs:
     - name: Build Darwin/ARM64 binary
       run: GOOS=darwin GOARCH=arm64 go build -o vault-auditor ./
 
+    - name: Setup Docker on macOS
+      uses: douglascamata/setup-docker-macos-action@v1-alpha
+  
+
     - name: Build Docker image for Darwin/ARM64
       run: docker buildx build --no-cache --platform linux/arm64/v8 --file Dockerfile ./ -t ghcr.io/czembower/vault-auditor-arm64:latest
 
